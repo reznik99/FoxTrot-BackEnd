@@ -4,8 +4,8 @@ const JWTstrategy = require('passport-jwt').Strategy;
 const ExtractJWT = require('passport-jwt').ExtractJwt;
 
 const bcrypt = require('bcryptjs');
-const pool = require('./config/dbConfig');
 const jwtSecret = require('./config/jwtConfig');
+const pool = require('./config/dbConfig');
 
 const BCRYPT_SALT_ROUNDS = 12;
 
