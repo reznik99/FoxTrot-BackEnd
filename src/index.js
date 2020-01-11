@@ -2,7 +2,7 @@
 const express = require('express'),
     passport = require('passport'),
     bodyParser = require("body-parser"),
-    createRoutes = require('./routes'),
+    createRoutes = require('./routes').default,
     auth = require('./auth');
 
 const PORT = process.env.PORT || 1234;
