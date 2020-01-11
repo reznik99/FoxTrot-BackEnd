@@ -54,7 +54,6 @@ module.exports = (passport) => {
         session: false,
     }, (username, password, done) => {
 
-        // Todo
         pool.query('SELECT * FROM users WHERE username=$1', username, (err, results) => {
             if (err) {
                 console.log(err.stack)
