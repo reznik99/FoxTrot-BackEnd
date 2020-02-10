@@ -12,7 +12,7 @@ const createRoutes = (app, passport) => {
             if (err) {
                 console.error(`error ${err}`);
             }
-            if (info !== undefined) {
+            else if (info !== undefined) {
                 console.error(info.message);
                 if (info.message === 'Invalid username and/or password') {
                     res.status(401).send(info.message);
@@ -20,10 +20,11 @@ const createRoutes = (app, passport) => {
                     res.status(403).send(info.message);
                 }
             } else {
+                console.log(user);
                 // todo:
                 // Should get user data from database
                 req.logIn(user, () => {
-                    const token = jwt.sign({ id: user.username }, jwtSecret.secret, {
+                    const token = jwt.sign({ id: user.phone_no }, jwtSecret.secret, {
                         expiresIn: 60 * 60,
                     });
                     res.status(200).send({

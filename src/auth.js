@@ -5,7 +5,7 @@ const ExtractJWT = require('passport-jwt').ExtractJwt;
 
 const bcrypt = require('bcryptjs');
 const jwtSecret = require('./config/jwtConfig');
-const pool = require('./config/dbConfig');
+const pool = require('./config/dbConfig').pool;
 
 const BCRYPT_SALT_ROUNDS = 12;
 
@@ -22,24 +22,22 @@ module.exports = (passport) => {
 
 
     passport.use('register', new LocalStrategy({
-        usernameField: 'username',
+        usernameField: 'phone_no',
         passwordField: 'password',
         passReqToCallback: true,
         session: false,
-    }, (req, username, password, done) => {
+    }, (req, phone_no, password, done) => {
 
-        pool.query('SELECT username FROM users WHERE username=$1', username, (err, results) => {
+        pool.query('SELECT phone_no FROM users WHERE phone_no=$1', [phone_no], (err, results) => {
             if (err) {
                 console.log(err.stack)
             } else {
-                if (results.rows.length > 0) {
-                    console.log('username already taken');
-                    return done(null, false, { message: 'username already taken' });
-                }
+                if (results.rows.length > 0)
+                    return done(null, false, { message: 'Phone number already registered' });
 
                 // Create new user (HASH PASSWORD)
                 bcrypt.hash(password, BCRYPT_SALT_ROUNDS, (err, hash) => {
-                    pool.query('INSERT INTO users VALUES ($1, $2) RETURNING *', [username, hash], (err, results) => {
+                    pool.query('INSERT INTO users VALUES ($1, $2) RETURNING *', [phone_no, hash], (err, results) => {
                         return done(null, results.rows[0]);
                     });
                 });
@@ -49,19 +47,17 @@ module.exports = (passport) => {
     );
 
     passport.use('login', new LocalStrategy({
-        usernameField: 'username',
+        usernameField: 'phone_no',
         passwordField: 'password',
         session: false,
-    }, (username, password, done) => {
+    }, (phone_no, password, done) => {
 
-        pool.query('SELECT * FROM users WHERE username=$1', username, (err, results) => {
+        pool.query('SELECT * FROM users WHERE phone_no=$1', [phone_no], (err, results) => {
             if (err) {
                 console.log(err.stack)
             } else {
-                if (results.rows.length > 0) {
-                    console.log('username doesn\'t exist');
-                    return done(null, false, { message: 'username doesn\'t exist' });
-                }
+                if (results.rows.length < 1)
+                    return done(null, false, { message: 'Username doesn\'t exist' });
 
                 // Compare hashes
                 let user = results.rows[0];
@@ -73,7 +69,6 @@ module.exports = (passport) => {
                     }
                     // Valid credentials
                     return done(null, user);
-
                 });
             }
         });
