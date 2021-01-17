@@ -18,6 +18,6 @@ auth(passport);
 createRoutes(app, passport);
 
 //listen
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, () => {
     console.info(`User-service listening on ${PORT}`);
 });
