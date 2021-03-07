@@ -4,7 +4,7 @@ const JWTstrategy = require('passport-jwt').Strategy;
 const ExtractJWT = require('passport-jwt').ExtractJwt;
 
 const bcrypt = require('bcryptjs');
-const jwtSecret = require('./config/jwtConfig');
+const jwtConfig = require('./config/jwtConfig');
 const pool = require('./config/dbConfig').pool;
 
 const BCRYPT_SALT_ROUNDS = 12;
@@ -24,9 +24,8 @@ module.exports = (passport) => {
     passport.use('register', new LocalStrategy({
         usernameField: 'phone_no',
         passwordField: 'password',
-        passReqToCallback: true,
         session: false,
-    }, (req, phone_no, password, done) => {
+    }, (phone_no, password, done) => {
 
         pool.query('SELECT phone_no FROM users WHERE phone_no=$1', [phone_no], (err, results) => {
             if (err) {
@@ -77,27 +76,24 @@ module.exports = (passport) => {
 
     const opts = {
         jwtFromRequest: ExtractJWT.fromAuthHeaderWithScheme('JWT'),
-        secretOrKey: jwtSecret.secret,
+        secretOrKey: jwtConfig.secret,
     };
 
     passport.use('jwt', new JWTstrategy(opts, (jwt_payload, done) => {
-        try {
-            User.findOne({
-                where: {
-                    id: jwt_payload.id,
-                },
-            }).then(user => {
-                if (user) {
-                    console.log('user found in db in passport');
-                    done(null, user);
-                } else {
-                    console.log('user not found in db');
-                    done(null, false);
-                }
-            });
-        } catch (err) {
-            done(err);
-        }
+        // Todo: is token expired?
+
+        //does user actually exist? This might not be necessary because JWT falsification shouldn't be possible without secret.
+        pool.query('SELECT * FROM users WHERE id=$1', [jwt_payload.id], (err, results) => {
+            if (err) {
+                console.log(err.stack)
+            } else {
+                if (results.rows.length < 1)
+                    return done(null, false, { message: 'Invalid Token!' });
+                    
+                //Valid Token
+                return done(null, results.rows[0]);
+            }
+        });
     }),
     );
 };

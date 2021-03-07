@@ -1,28 +1,23 @@
 const jwt = require('jsonwebtoken');
 const jwtSecret = require('./config/jwtConfig');
+const pool = require('./config/dbConfig').pool;
 
 const createRoutes = (app, passport) => {
-    app.get("/", (req, res, next) => {
-        //todo
-        res.send("Hello world");
-    });
 
     app.post('/login', (req, res, next) => {
         passport.authenticate('login', (err, user, info) => {
-            if (err) {
+            if (err)
                 console.error(`error ${err}`);
-            }
+
             else if (info !== undefined) {
                 console.error(info.message);
-                if (info.message === 'Invalid username and/or password') {
+                if (info.message === 'Invalid username and/or password')
                     res.status(401).send(info.message);
-                } else {
+                else
                     res.status(403).send(info.message);
-                }
             } else {
                 console.log(user);
-                // todo:
-                // Should get user data from database
+                // todo: Should get user data from database
                 req.logIn(user, () => {
                     const token = jwt.sign({ id: user.phone_no }, jwtSecret.secret, {
                         expiresIn: 60 * 60,
@@ -34,7 +29,7 @@ const createRoutes = (app, passport) => {
                     });
                 });
             }
-        })(req, res, next);
+        });
     });
 
     app.post('/signup', (req, res, next) => {
@@ -56,16 +51,97 @@ const createRoutes = (app, passport) => {
 
     // Protected Routes
     app.post('/sendMessage', (req, res, next) => {
-        passport.authenticate('jwt', (err, users, info) => {
+        passport.authenticate('jwt', (err, user, info) => {
             // Todo
-
         })(req, res, next);
     });
     app.post('/addContact', (req, res, next) => {
-        passport.authenticate('jwt', (err, users, info) => {
-            // Todo
+        passport.authenticate('jwt', (err, user, info) => {
+            if (err)
+                console.error(`error ${err}`);
+
+            if (info !== undefined) {
+                console.error(info.message);
+                res.status(403).send(info.message);
+            } else {
+                let data = req.body;
+                pool.query('INSERT INTO contacts VALUES ($1, $2, $3) RETURNING *', [user.id, data.id, data.nickname], (err, result) => {
+                    if (err) {
+                        console.log(err.stack);
+                    } else if (result.rows.length > 0) {
+                        res.status(200).send({
+                            message: 'Contact added'
+                        });
+                    }
+                });
+            }
+        })(req, res, next);
+    });
+    app.delete('/removeContact', (req, res, next) => {
+        passport.authenticate('jwt', (err, user, info) => {
+            if (err)
+                console.error(`error ${err}`);
+
+            if (info !== undefined) {
+                console.error(info.message);
+                res.status(403).send(info.message);
+            } else {
+                let data = req.body;
+                pool.query('DELETE FROM contacts WHERE user1 = $1 AND user2 = $2', [user.id, data.id], (err, result) => {
+                    if (err) {
+                        console.log(err.stack);
+                    } else {
+                        res.status(200).send({
+                            message: 'Contact removed'
+                        });
+                    }
+                });
+
+            }
 
         })(req, res, next);
+    });
+    app.get('/getContacts', (req, res, next) => {
+        passport.authenticate('jwt', (err, user, info) => {
+            if (err)
+                console.error(`error ${err}`);
+
+            if (info !== undefined) {
+                console.error(info.message);
+                res.status(403).send(info.message);
+            } else {
+                let data = req.body;
+                pool.query('SELECT * FROM contacts WHERE user1 = $1', [user.id], (err, result) => {
+                    if (err) {
+                        console.log(err.stack);
+                    } else if (result.rows.length > 0) {
+                        console.log(result.rows);
+                        res.status(200).send(result.rows);
+                    }
+                });
+            }
+        })(req, res, next);
+    });
+    app.get('/searchUsers/:prefix', (req, res, next) => {
+        passport.authenticate('jwt', (err, user, info) => {
+            if (err)
+                console.error(`error ${err}`);
+
+            if (info !== undefined) {
+                console.error(info.message);
+                res.status(403).send(info.message);
+            } else {
+                const prefix = req.params.prefix;
+                pool.query("SELECT * FROM users WHERE phone_no LIKE '$1%' LIMIT 10", [prefix], (err, result) => {
+                    if (err) {
+                        console.log(err.stack);
+                    } else if (result.rows.length > 0) {
+                        console.log(result.rows);
+                        res.status(200).send(result.rows);
+                    }
+                });
+            }
+        });
     });
 };
 
