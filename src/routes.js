@@ -6,7 +6,7 @@ const createRoutes = (app, passport) => {
 
     app.post('/login', (req, res, next) => {
         passport.authenticate('login', (err, user, info) => {
-            console.log("In Routes.js");
+
             if (err)
                 console.error(`error ${err}`);
 

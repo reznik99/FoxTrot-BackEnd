@@ -50,7 +50,6 @@ module.exports = (passport) => {
         passwordField: 'password',
         session: false,
     }, (phone_no, password, done) => {
-        console.log("In Auth.js");
 
         pool.query('SELECT * FROM users WHERE phone_no=$1', [phone_no], (err, results) => {
             if (err) {
