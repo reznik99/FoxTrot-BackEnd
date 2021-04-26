@@ -50,6 +50,7 @@ module.exports = (passport) => {
         passwordField: 'password',
         session: false,
     }, (phone_no, password, done) => {
+        console.log("In Auth.js");
 
         pool.query('SELECT * FROM users WHERE phone_no=$1', [phone_no], (err, results) => {
             if (err) {
@@ -89,7 +90,7 @@ module.exports = (passport) => {
             } else {
                 if (results.rows.length < 1)
                     return done(null, false, { message: 'Invalid Token!' });
-                    
+
                 //Valid Token
                 return done(null, results.rows[0]);
             }

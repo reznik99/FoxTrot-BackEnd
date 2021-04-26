@@ -10,7 +10,6 @@ const app = express();
 
 //middleware
 app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: true }))
 app.use(passport.initialize());
 
 //authentication and routes
