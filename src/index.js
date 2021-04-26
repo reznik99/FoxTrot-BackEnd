@@ -2,7 +2,6 @@
 const express = require('express'),
     passport = require('passport'),
     bodyParser = require('body-parser'),
-    multer = require('multer'),
     createRoutes = require('./routes'),
     auth = require('./auth');
 
@@ -12,7 +11,6 @@ const app = express();
 //middleware
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
-app.use(multer())
 app.use(passport.initialize());
 
 //authentication and routes
