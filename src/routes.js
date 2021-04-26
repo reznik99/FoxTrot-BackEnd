@@ -29,7 +29,7 @@ const createRoutes = (app, passport) => {
                     });
                 });
             }
-        });
+        })(req, res, next);
     });
 
     app.post('/signup', (req, res, next) => {
@@ -96,9 +96,7 @@ const createRoutes = (app, passport) => {
                         });
                     }
                 });
-
             }
-
         })(req, res, next);
     });
     app.get('/getContacts', (req, res, next) => {
@@ -141,7 +139,7 @@ const createRoutes = (app, passport) => {
                     }
                 });
             }
-        });
+        })(req, res, next);
     });
 };
 
