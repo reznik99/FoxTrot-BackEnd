@@ -1,7 +1,6 @@
 
 const express = require('express'),
     passport = require('passport'),
-    bodyParser = require("body-parser"),
     createRoutes = require('./routes'),
     auth = require('./auth');
 
@@ -9,8 +8,8 @@ const PORT = process.env.PORT || 1234;
 const app = express();
 
 //middleware
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
 //authentication and routes
