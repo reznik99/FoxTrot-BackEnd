@@ -113,7 +113,7 @@ const createRoutes = (app, passport) => {
                 pool.query('SELECT * FROM contacts WHERE user1 = $1', [user.id], (err, result) => {
                     if (err) {
                         console.log(err.stack);
-                    } else if (result.rows.length > 0) {
+                    } else {
                         console.log(result.rows);
                         res.status(200).send(result.rows);
                     }
