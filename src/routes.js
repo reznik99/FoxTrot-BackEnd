@@ -20,7 +20,7 @@ const createRoutes = (app, passport) => {
                 console.log(user);
                 // todo: Should get user data from database
                 req.logIn(user, () => {
-                    const token = jwt.sign({ id: user.phone_no }, jwtSecret.secret, {
+                    const token = jwt.sign({ id: user.id, phone_no: user.phone_no }, jwtSecret.secret, {
                         expiresIn: 60 * 60,
                     });
                     res.status(200).send({
