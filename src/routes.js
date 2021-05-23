@@ -131,10 +131,10 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message);
             } else {
                 const prefix = req.params.prefix;
-                pool.query("SELECT * FROM users WHERE phone_no LIKE '$1%' LIMIT 10", [prefix], (err, result) => {
+                pool.query("SELECT phone_no FROM users WHERE phone_no LIKE $1 LIMIT 10", [prefix + '%'], (err, result) => {
                     if (err) {
                         console.log(err.stack);
-                    } else if (result.rows.length > 0) {
+                    } else {
                         console.log(result.rows);
                         res.status(200).send(result.rows);
                     }
