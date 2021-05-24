@@ -66,9 +66,9 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message);
             } else {
                 let data = req.body;
-                pool.query('INSERT INTO contacts VALUES ($1, $2, $3) RETURNING *', [user.id, data.id, data.nickname], (err, result) => {
+                pool.query('INSERT INTO contacts VALUES ($1, $2) RETURNING *', [user.id, data.id], (err, result) => {
                     if (err) {
-                        console.log(err.stack);
+                        console.error(err.stack);
                     } else if (result.rows.length > 0) {
                         res.status(200).send({
                             message: 'Contact added'
@@ -88,9 +88,9 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message);
             } else {
                 let data = req.body;
-                pool.query('DELETE FROM contacts WHERE user1 = $1 AND user2 = $2', [user.id, data.id], (err, result) => {
+                pool.query('DELETE FROM contacts WHERE user_id = $1 AND contact_id = $2', [user.id, data.id], (err, result) => {
                     if (err) {
-                        console.log(err.stack);
+                        console.error(err.stack);
                     } else {
                         res.status(200).send({
                             message: 'Contact removed'
@@ -110,11 +110,10 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message);
             } else {
                 let data = req.body;
-                pool.query('SELECT * FROM contacts WHERE user1 = $1', [user.id], (err, result) => {
+                pool.query('SELECT * FROM contacts WHERE user_id = $1', [user.id], (err, result) => {
                     if (err) {
-                        console.log(err.stack);
+                        console.error(err.stack);
                     } else {
-                        console.log(result.rows);
                         res.status(200).send(result.rows);
                     }
                 });
@@ -131,7 +130,7 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message);
             } else {
                 const prefix = req.params.prefix;
-                pool.query("SELECT phone_no FROM users WHERE phone_no LIKE $1 LIMIT 10", [prefix + '%'], (err, result) => {
+                pool.query("SELECT phone_no FROM users WHERE phone_no LIKE $1 AND phone_no != $2 LIMIT 10", [prefix + '%', user.phone_no], (err, result) => {
                     if (err)
                         console.error(err.stack);
                     else
