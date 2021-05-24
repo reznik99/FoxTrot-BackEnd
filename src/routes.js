@@ -123,8 +123,8 @@ const createRoutes = (app, passport) => {
     });
     app.get('/searchUsers/:prefix', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
-            if (err)
-                console.error(`error ${err}`);
+
+            if (err) console.error(`error ${err}`);
 
             if (info !== undefined) {
                 console.error(info.message);
@@ -132,12 +132,10 @@ const createRoutes = (app, passport) => {
             } else {
                 const prefix = req.params.prefix;
                 pool.query("SELECT phone_no FROM users WHERE phone_no LIKE $1 LIMIT 10", [prefix + '%'], (err, result) => {
-                    if (err) {
-                        console.log(err.stack);
-                    } else {
-                        console.log(result.rows);
+                    if (err)
+                        console.error(err.stack);
+                    else
                         res.status(200).send(result.rows);
-                    }
                 });
             }
         })(req, res, next);

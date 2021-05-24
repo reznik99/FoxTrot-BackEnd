@@ -29,14 +29,19 @@ module.exports = (passport) => {
 
         pool.query('SELECT phone_no FROM users WHERE phone_no=$1', [phone_no], (err, results) => {
             if (err) {
-                console.log(err.stack)
+                console.error(err.stack)
             } else {
                 if (results.rows.length > 0)
-                    return done(null, false, { message: 'Phone number already registered' });
+                    return done(null, false, { message: 'Phone number already registered!' });
 
                 // Create new user (HASH PASSWORD)
                 bcrypt.hash(password, BCRYPT_SALT_ROUNDS, (err, hash) => {
                     pool.query('INSERT INTO users VALUES ($1, $2) RETURNING *', [phone_no, hash], (err, results) => {
+                        // Catch both bcrypt and psql errors, log them and return generic internal error
+                        if (err) {
+                            console.error(err)
+                            return done(null, false, { message: 'Error occoured during registration. Please try again later.' });
+                        }
                         return done(null, results.rows[0]);
                     });
                 });
@@ -52,6 +57,7 @@ module.exports = (passport) => {
     }, (phone_no, password, done) => {
 
         pool.query('SELECT * FROM users WHERE phone_no=$1', [phone_no], (err, results) => {
+
             if (err) {
                 console.log(err.stack)
             } else {
