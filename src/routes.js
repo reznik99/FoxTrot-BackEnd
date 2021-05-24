@@ -51,6 +51,28 @@ const createRoutes = (app, passport) => {
     });
 
     // Protected Routes
+    app.post('/savePublicKey', (req, res, next) => {
+        passport.authenticate('jwt', (err, user, info) => {
+            if (err)
+                console.error(`error ${err}`);
+
+            if (info !== undefined) {
+                console.error(info.message);
+                res.status(403).send(info.message);
+            } else {
+                let publicKey = req.body.publicKey;
+                pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, user.id], (err, result) => {
+                    if (err) {
+                        console.error(err.stack);
+                    } else {
+                        res.status(200).send({
+                            message: 'Stored public key'
+                        });
+                    }
+                });
+            }
+        })(req, res, next);
+    });
     app.post('/sendMessage', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             // Todo
