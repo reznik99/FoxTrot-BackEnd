@@ -7,7 +7,7 @@ CREATE TABLE users(
 );
 
 CREATE TABLE contacts(
-    id SERIAL NOT NULL PRIMARY KEY
-    user_id SERIAL NOT NULL REFERENCES users(id)
+    id SERIAL NOT NULL PRIMARY KEY,
+    user_id SERIAL NOT NULL REFERENCES users(id),
     contact_id SERIAL NOT NULL REFERENCES users(id)
 );
