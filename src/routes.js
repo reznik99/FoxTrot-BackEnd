@@ -1,6 +1,6 @@
-const jwt = require('jsonwebtoken');
-const jwtSecret = require('./config/jwtConfig');
-const pool = require('./config/dbConfig').pool;
+const jwt = require('jsonwebtoken')
+const jwtSecret = require('./config/jwtConfig')
+const pool = require('./config/dbConfig').pool
 
 const createRoutes = (app, passport) => {
 
@@ -8,8 +8,10 @@ const createRoutes = (app, passport) => {
         passport.authenticate('login', (err, user, info) => {
             console.log(`/login called by user ${user.phone_no}`)
 
-            if (err)
+            if (err) {
                 console.error(`error ${err}`)
+                res.status(500)
+            }
 
             else if (info !== undefined) {
                 console.error(info.message)
@@ -21,7 +23,7 @@ const createRoutes = (app, passport) => {
                 req.logIn(user, () => {
                     const token = jwt.sign({ id: user.id, phone_no: user.phone_no }, jwtSecret.secret, {
                         expiresIn: 60 * 60,
-                    });
+                    })
                     res.status(200).send({
                         auth: true,
                         token,
@@ -29,25 +31,25 @@ const createRoutes = (app, passport) => {
                     })
                 })
             }
-        })(req, res, next);
-    });
+        })(req, res, next)
+    })
 
     app.post('/signup', (req, res, next) => {
         passport.authenticate('register', (err, user, info) => {
             if (err) {
-                console.error(`error ${err}`);
+                console.error(`error ${err}`)
+                res.status(500)
             }
             if (info !== undefined) {
-                console.error(info.message);
-                res.status(403).send(info.message);
+                console.error(info.message)
+                res.status(403).send(info.message)
             } else {
-                // Todo
                 res.status(200).send({
                     message: 'user created',
-                });
+                })
             }
-        })(req, res, next);
-    });
+        })(req, res, next)
+    })
 
     // Protected Routes
     app.post('/savePublicKey', (req, res, next) => {
@@ -72,8 +74,8 @@ const createRoutes = (app, passport) => {
                         res.status(500)
                     })
             }
-        })(req, res, next);
-    });
+        })(req, res, next)
+    })
     app.post('/sendMessage', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/sendMessage called by user ${user.phone_no}`)
@@ -98,20 +100,22 @@ const createRoutes = (app, passport) => {
                         res.status(500)
                     })
             }
-        })(req, res, next);
-    });
+        })(req, res, next)
+    })
     app.post('/addContact', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/addContact called by user ${user.phone_no}`)
 
-            if (err)
-                console.error(`error ${err}`);
+            if (err) {
+                console.error(`error ${err}`)
+                res.status(500)
+            }
 
             if (info !== undefined) {
-                console.error(info.message);
-                res.status(403).send(info.message);
+                console.error(info.message)
+                res.status(403).send(info.message)
             } else {
-                let data = req.body;
+                let data = req.body
                 pool.query('INSERT INTO contacts VALUES ($1, $2) RETURNING *', [user.id, data.id])
                     .then(result => {
                         res.status(200).send({
@@ -125,65 +129,67 @@ const createRoutes = (app, passport) => {
                         })
                     })
             }
-        })(req, res, next);
-    });
+        })(req, res, next)
+    })
     app.delete('/removeContact', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/removeContact called by user ${user.phone_no}`)
 
-            if (err)
-                console.error(`error ${err}`);
+            if (err) {
+                console.error(`error ${err}`)
+                res.status(500)
+            }
 
             if (info !== undefined) {
-                console.error(info.message);
-                res.status(403).send(info.message);
+                console.error(info.message)
+                res.status(403).send(info.message)
             } else {
-                let data = req.body;
+                let data = req.body
                 pool.query('DELETE FROM contacts WHERE user_id = $1 AND contact_id = $2', [user.id, data.id], (err, result) => {
                     if (err) {
-                        console.error(err.stack);
+                        console.error(err.stack)
                     } else {
                         res.status(200).send({
                             message: 'Contact removed'
-                        });
+                        })
                     }
-                });
+                })
             }
-        })(req, res, next);
-    });
+        })(req, res, next)
+    })
     app.get('/getContacts', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/getContacts called by user ${user.phone_no}`)
 
             if (err)
-                console.error(`error ${err}`);
+                console.error(`error ${err}`)
 
             if (info !== undefined) {
-                console.error(info.message);
-                res.status(403).send(info.message);
+                console.error(info.message)
+                res.status(403).send(info.message)
             } else {
-                let data = req.body;
+                let data = req.body
                 pool.query('SELECT id, phone_no, public_key FROM users WHERE id IN (SELECT contact_id FROM contacts WHERE user_id = $1)', [user.id], (err, result) => {
                     if (err) {
-                        console.error(err.stack);
+                        console.error(err.stack)
                     } else {
-                        res.status(200).send(result.rows);
+                        res.status(200).send(result.rows)
                     }
-                });
+                })
             }
-        })(req, res, next);
-    });
+        })(req, res, next)
+    })
     app.get('/searchUsers/:prefix', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/searchUsers/:prefix called by user ${user.phone_no}`)
 
-            if (err) console.error(`error ${err}`);
+            if (err) console.error(`error ${err}`)
 
             if (info !== undefined) {
-                console.error(info.message);
-                res.status(403).send(info.message);
+                console.error(info.message)
+                res.status(403).send(info.message)
             } else {
-                const prefix = req.params.prefix;
+                const prefix = req.params.prefix
                 pool.query("SELECT id, phone_no, public_key FROM users WHERE phone_no LIKE $1 AND phone_no != $2 LIMIT 10", [prefix + '%', user.phone_no])
                     .then(result => {
                         res.status(200).send(result.rows)
@@ -194,18 +200,18 @@ const createRoutes = (app, passport) => {
                         console.error(err.stack)
                     })
             }
-        })(req, res, next);
-    });
+        })(req, res, next)
+    })
 
     app.get('/getConversations', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/getConversations called by user ${user.phone_no}`)
 
-            if (err) console.error(`error ${err}`);
+            if (err) console.error(`error ${err}`)
 
             if (info !== undefined) {
-                console.error(info.message);
-                res.status(403).send(info.message);
+                console.error(info.message)
+                res.status(403).send(info.message)
             } else {
                 pool.query("SELECT message, sent_at, seen, phone_no, contact_id FROM messages AS m INNER JOIN users AS u ON m.contact_id = u.id  WHERE user_id = $1 ORDER BY sent_at DESC LIMIT 100", [user.id])
                     .then(result => {
@@ -216,8 +222,8 @@ const createRoutes = (app, passport) => {
                         console.error(err.stack)
                     })
             }
-        })(req, res, next);
-    });
-};
+        })(req, res, next)
+    })
+}
 
-module.exports = createRoutes;
+module.exports = createRoutes
