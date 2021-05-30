@@ -6,19 +6,18 @@ const createRoutes = (app, passport) => {
 
     app.post('/login', (req, res, next) => {
         passport.authenticate('login', (err, user, info) => {
+            console.log(`/login called by user ${user.phone_no}`)
 
             if (err)
-                console.error(`error ${err}`);
+                console.error(`error ${err}`)
 
             else if (info !== undefined) {
-                console.error(info.message);
+                console.error(info.message)
                 if (info.message === 'Invalid username and/or password')
-                    res.status(401).send(info.message);
+                    res.status(401).send(info.message)
                 else
-                    res.status(403).send(info.message);
+                    res.status(403).send(info.message)
             } else {
-                console.log(user);
-                // todo: Should get user data from database
                 req.logIn(user, () => {
                     const token = jwt.sign({ id: user.id, phone_no: user.phone_no }, jwtSecret.secret, {
                         expiresIn: 60 * 60,
@@ -27,8 +26,8 @@ const createRoutes = (app, passport) => {
                         auth: true,
                         token,
                         message: 'user found & logged in',
-                    });
-                });
+                    })
+                })
             }
         })(req, res, next);
     });
@@ -185,12 +184,15 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message);
             } else {
                 const prefix = req.params.prefix;
-                pool.query("SELECT id, phone_no, public_key FROM users WHERE phone_no LIKE $1 AND phone_no != $2 LIMIT 10", [prefix + '%', user.phone_no], (err, result) => {
-                    if (err)
-                        console.error(err.stack);
-                    else
-                        res.status(200).send(result.rows);
-                });
+                pool.query("SELECT id, phone_no, public_key FROM users WHERE phone_no LIKE $1 AND phone_no != $2 LIMIT 10", [prefix + '%', user.phone_no])
+                    .then(result => {
+                        res.status(200).send(result.rows)
+
+                    })
+                    .catch(err => {
+                        res.status(500)
+                        console.error(err.stack)
+                    })
             }
         })(req, res, next);
     });
@@ -205,12 +207,14 @@ const createRoutes = (app, passport) => {
                 console.error(info.message);
                 res.status(403).send(info.message);
             } else {
-                pool.query("SELECT message, sent_at, seen, phone_no, contact_id FROM messages AS m INNER JOIN users AS u ON m.contact_id = u.id  WHERE user_id = $1 ORDER BY sent_at DESC LIMIT 100", [user.id], (err, result) => {
-                    if (err)
-                        console.error(err.stack);
-                    else
-                        res.status(200).send(result.rows);
-                });
+                pool.query("SELECT message, sent_at, seen, phone_no, contact_id FROM messages AS m INNER JOIN users AS u ON m.contact_id = u.id  WHERE user_id = $1 ORDER BY sent_at DESC LIMIT 100", [user.id])
+                    .then(result => {
+                        res.status(200).send(result.rows)
+                    })
+                    .catch(err => {
+                        res.status(500)
+                        console.error(err.stack)
+                    })
             }
         })(req, res, next);
     });
