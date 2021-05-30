@@ -144,7 +144,7 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message);
             } else {
                 let data = req.body;
-                pool.query('SELECT * FROM contacts WHERE user_id = $1', [user.id], (err, result) => {
+                pool.query('SELECT id, phone_no, public_key FROM users WHERE id IN (SELECT contact_id FROM contacts WHERE user_id = $1)', [user.id], (err, result) => {
                     if (err) {
                         console.error(err.stack);
                     } else {
