@@ -53,23 +53,23 @@ const createRoutes = (app, passport) => {
     // Protected Routes
     app.post('/savePublicKey', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
-            if (err)
-                console.error(`error ${err}`);
-
+            if (err) {
+                console.error(`error ${err}`)
+                res.status(500)
+            }
             if (info !== undefined) {
-                console.error(info.message);
-                res.status(403).send(info.message);
+                console.error(info.message)
+                res.status(403).send(info.message)
             } else {
-                let publicKey = req.body.publicKey;
-                pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, user.id], (err, result) => {
-                    if (err) {
-                        console.error(err.stack);
-                    } else {
-                        res.status(200).send({
-                            message: 'Stored public key'
-                        });
-                    }
-                });
+                let publicKey = req.body.publicKey
+                pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, user.id])
+                    .then(result => {
+                        res.status(200).send({ message: 'Stored public key' })
+                    })
+                    .catch(err => {
+                        console.error(err.stack)
+                        res.status(500)
+                    })
             }
         })(req, res, next);
     });
