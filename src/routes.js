@@ -69,7 +69,7 @@ const createRoutes = (app, passport) => {
                         res.status(200).send({ message: 'Stored public key' })
                     })
                     .catch(err => {
-                        console.error(err.stack)
+                        console.error(err)
                         res.status(500)
                     })
             }
@@ -78,7 +78,25 @@ const createRoutes = (app, passport) => {
     app.post('/sendMessage', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/sendMessage called by user ${user.phone_no}`)
-            // Todo
+
+            if (err) {
+                console.error(`error ${err}`)
+                res.status(500)
+            }
+            if (info !== undefined) {
+                console.error(info.message)
+                res.status(403).send(info.message)
+            } else {
+                let { message, contact_id } = req.body
+                pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
+                    .then(result => {
+                        res.status(200).send({ message: 'Message Sent' })
+                    })
+                    .catch(err => {
+                        console.error(err)
+                        res.status(500)
+                    })
+            }
         })(req, res, next);
     });
     app.post('/addContact', (req, res, next) => {
