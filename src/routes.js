@@ -205,7 +205,7 @@ const createRoutes = (app, passport) => {
                 console.error(info.message);
                 res.status(403).send(info.message);
             } else {
-                pool.query("SELECT * FROM messages WHERE user_id = $1 SORT BY sent_at LIMIT 100", [user.id], (err, result) => {
+                pool.query("SELECT * FROM messages WHERE user_id = $1 ORDER BY sent_at ASC LIMIT 100", [user.id], (err, result) => {
                     if (err)
                         console.error(err.stack);
                     else
