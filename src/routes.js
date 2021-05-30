@@ -53,6 +53,8 @@ const createRoutes = (app, passport) => {
     // Protected Routes
     app.post('/savePublicKey', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
+            console.log(`/savePublicKey called by user ${user.phone_no}`)
+
             if (err) {
                 console.error(`error ${err}`)
                 res.status(500)
@@ -75,11 +77,14 @@ const createRoutes = (app, passport) => {
     });
     app.post('/sendMessage', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
+            console.log(`/sendMessage called by user ${user.phone_no}`)
             // Todo
         })(req, res, next);
     });
     app.post('/addContact', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
+            console.log(`/addContact called by user ${user.phone_no}`)
+
             if (err)
                 console.error(`error ${err}`);
 
@@ -102,6 +107,8 @@ const createRoutes = (app, passport) => {
     });
     app.delete('/removeContact', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
+            console.log(`/removeContact called by user ${user.phone_no}`)
+
             if (err)
                 console.error(`error ${err}`);
 
@@ -124,6 +131,8 @@ const createRoutes = (app, passport) => {
     });
     app.get('/getContacts', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
+            console.log(`/getContacts called by user ${user.phone_no}`)
+
             if (err)
                 console.error(`error ${err}`);
 
@@ -144,6 +153,7 @@ const createRoutes = (app, passport) => {
     });
     app.get('/searchUsers/:prefix', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
+            console.log(`/searchUsers/:prefix called by user ${user.phone_no}`)
 
             if (err) console.error(`error ${err}`);
 
