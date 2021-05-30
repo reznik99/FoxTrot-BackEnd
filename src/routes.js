@@ -100,8 +100,10 @@ const createRoutes = (app, passport) => {
                         })
                     })
                     .catch(err => {
-                        console.error(err)
-                        res.status(500)
+                        console.error(`Cannot add existing contact`)
+                        res.status(500).send({
+                            message: 'Contact already added'
+                        })
                     })
             }
         })(req, res, next);
