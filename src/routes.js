@@ -93,15 +93,16 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message);
             } else {
                 let data = req.body;
-                pool.query('INSERT INTO contacts VALUES ($1, $2) RETURNING *', [user.id, data.id], (err, result) => {
-                    if (err) {
-                        console.error(err.stack);
-                    } else if (result.rows.length > 0) {
+                pool.query('INSERT INTO contacts VALUES ($1, $2) RETURNING *', [user.id, data.id])
+                    .then(result => {
                         res.status(200).send({
                             message: 'Contact added'
-                        });
-                    }
-                });
+                        })
+                    })
+                    .catch(err => {
+                        console.error(err)
+                        res.status(500)
+                    })
             }
         })(req, res, next);
     });
@@ -162,7 +163,7 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message);
             } else {
                 const prefix = req.params.prefix;
-                pool.query("SELECT phone_no FROM users WHERE phone_no LIKE $1 AND phone_no != $2 LIMIT 10", [prefix + '%', user.phone_no], (err, result) => {
+                pool.query("SELECT id, phone_no, public_key FROM users WHERE phone_no LIKE $1 AND phone_no != $2 LIMIT 10", [prefix + '%', user.phone_no], (err, result) => {
                     if (err)
                         console.error(err.stack);
                     else
