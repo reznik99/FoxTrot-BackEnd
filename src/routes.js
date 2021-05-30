@@ -194,6 +194,26 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next);
     });
+
+    app.get('/getConversations', (req, res, next) => {
+        passport.authenticate('jwt', (err, user, info) => {
+            console.log(`/getConversations called by user ${user.phone_no}`)
+
+            if (err) console.error(`error ${err}`);
+
+            if (info !== undefined) {
+                console.error(info.message);
+                res.status(403).send(info.message);
+            } else {
+                pool.query("SELECT * FROM messages WHERE user_id = $1 SORT BY sent_at LIMIT 100", [user.id], (err, result) => {
+                    if (err)
+                        console.error(err.stack);
+                    else
+                        res.status(200).send(result.rows);
+                });
+            }
+        })(req, res, next);
+    });
 };
 
 module.exports = createRoutes;
