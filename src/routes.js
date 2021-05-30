@@ -88,6 +88,8 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message)
             } else {
                 let { message, contact_id } = req.body
+                console.log(message)
+                console.log(contact_id)
                 pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
                     .then(result => {
                         res.status(200).send({ message: 'Message Sent' })
