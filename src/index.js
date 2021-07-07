@@ -18,5 +18,5 @@ createRoutes(app, passport);
 
 //listen
 app.listen(PORT, () => {
-    console.info(`User-service listening on ${PORT}`);
+    console.info(`FoxTrot Server listening on ${PORT}`);
 });
