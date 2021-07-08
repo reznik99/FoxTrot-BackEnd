@@ -86,8 +86,6 @@ module.exports = (passport) => {
     };
 
     passport.use('jwt', new JWTstrategy(opts, (jwt_payload, done) => {
-        // Todo: is token expired?
-
         //does user actually exist? This might not be necessary because JWT falsification shouldn't be possible without secret.
         pool.query('SELECT * FROM users WHERE id=$1', [jwt_payload.id], (err, results) => {
             if (err) {

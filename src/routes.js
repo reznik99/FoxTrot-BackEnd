@@ -202,7 +202,6 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-
     app.get('/getConversations', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/getConversations called by user ${user.phone_no}`)
@@ -221,6 +220,17 @@ const createRoutes = (app, passport) => {
                         res.status(500)
                         console.error(err.stack)
                     })
+            }
+        })(req, res, next)
+    })
+    app.get('/validateToken', (req, res, next) => {
+        passport.authenticate('jwt', (err, user, info) => {
+            console.log(`/validateToken called by user ${user.phone_no}`)
+            if (err || info !== undefined) {
+                console.error(info.message || err)
+                res.status(404).send({ valid: false }) // token expired!
+            } else {
+                res.status(200).send({ valid: true })  // token valid
             }
         })(req, res, next)
     })
