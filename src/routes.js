@@ -224,8 +224,8 @@ const createRoutes = (app, passport) => {
         })(req, res, next)
     })
     app.get('/validateToken', (req, res, next) => {
+        console.log(`/validateToken called`)
         passport.authenticate('jwt', (err, user, info) => {
-            console.log(`/validateToken called by user ${user.phone_no}`)
             if (err || info !== undefined) {
                 console.error(info.message || err)
                 res.status(404).send({ valid: false }) // token expired!
