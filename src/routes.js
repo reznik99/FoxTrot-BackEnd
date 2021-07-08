@@ -228,7 +228,7 @@ const createRoutes = (app, passport) => {
         passport.authenticate('jwt', (err, user, info) => {
             if (err || info !== undefined) {
                 console.error(info.message || err)
-                res.status(404).send({ valid: false }) // token expired!
+                res.status(401).send({ valid: false }) // token expired!
             } else {
                 res.status(200).send({ valid: true })  // token valid
             }
