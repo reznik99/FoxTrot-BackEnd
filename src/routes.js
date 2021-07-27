@@ -53,7 +53,7 @@ const createRoutes = (app, passport) => {
 
     // Protected Routes
     app.post('/savePublicKey', (req, res, next) => {
-        passport.authenticate('jwt', (err, user, info) => {
+        passport.authenticate('jwt', async (err, user, info) => {
             console.log(`/savePublicKey called by user ${user.phone_no}`)
 
             if (err) {
@@ -65,14 +65,20 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message)
             } else {
                 let publicKey = req.body.publicKey
-                pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, user.id])
-                    .then(result => {
+                try {
+                    let result = await pool.query('SELECT public_key WHERE id = $1', [user.id])
+
+                    if (result.rows[0] == '') {
+                        await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, user.id])
                         res.status(200).send({ message: 'Stored public key' })
-                    })
-                    .catch(err => {
-                        console.error(err)
-                        res.status(500)
-                    })
+                    } else {
+                        console.error(`User ${user.phone_no} trying to overwrite account\'s public key. Rejected`)
+                        res.status(403)
+                    }
+                } catch (error) {
+                    console.error(err)
+                    res.status(500)
+                }
             }
         })(req, res, next)
     })
