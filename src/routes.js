@@ -101,7 +101,14 @@ const createRoutes = (app, passport) => {
                 const targetWS = wsClients.get(contact_id)
                 if (targetWS) {
                     console.log('Recipient online! Using websocket')
-                    targetWS.send(`You got mail! Message from ${targetWS.session?.phone_no}:${message}`)
+                    const msg = {
+                        sender: user.phone_no,
+                        message: message,
+                        reciever: targetWS.session.phone_no,
+                        sent_at: Date.now(),
+                        seen: false
+                    }
+                    targetWS.send(JSON.stringify(msg))
                 } else {
                     console.log('Recipient offline!')
                 }
