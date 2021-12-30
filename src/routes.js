@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken')
 const jwtSecret = require('./config/jwtConfig')
 const pool = require('./config/dbConfig').pool
+const { wsClients } = require('./websockets')
 
 const createRoutes = (app, passport) => {
 
@@ -95,8 +96,15 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message)
             } else {
                 let { message, contact_id } = req.body
-                console.log(message)
-                console.log(contact_id)
+                console.log(message + " " + contact_id)
+                // Attempt to send the message directly to the online user, as a notification
+                const targetWS = wsClients.get(contact_id)
+                if (targetWS) {
+                    console.log('Recipient online! Using websocket')
+                    targetWS.send(`You got mail! Message from ${targetWS.session?.phone_no}:${message}`)
+                } else {
+                    console.log('Recipient offline!')
+                }
                 pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
                     .then(result => {
                         res.status(200).send({ message: 'Message Sent' })

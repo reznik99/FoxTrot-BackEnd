@@ -3,7 +3,7 @@ const express = require('express'),
     passport = require('passport'),
     bodyParser = require('body-parser'),
     createRoutes = require('./routes'),
-    { configureWebsocket, wsClients } = require('./websockets'),
+    { configureWebsocket } = require('./websockets'),
     auth = require('./auth')
 
 const PORT = process.env.PORT || 1234

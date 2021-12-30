@@ -20,7 +20,7 @@ module.exports = {
                     console.error("Websocket connection rejected, invalid JWT")
                     ws.close()
                 } else {
-                    wsClients.set(decoded.phone_no, ws)
+                    wsClients.set(decoded.id, ws)
                     ws.isAlive = true
                     ws.session = decoded
                     console.log(`New Websocket connection established for ${decoded.phone_no}`)
@@ -39,20 +39,24 @@ module.exports = {
                     }
                 })
                 console.log(data.toString())
-                const cmd = JSON.parse(data)
-                switch (cmd.cmd) {
-                    case "MSG":
-                        const targetWS = wsClients.get(cmd.target)
-                        if (!targetWS) ws.send("User not online")
-                        else targetWS.send(ws.session.phone_no + ": " + cmd.data)
-                        break
-                    default:
-                        ws.send(ws.session.phone_no + ": " + data)
+                try {
+                    const parsedData = JSON.parse(data)
+                    switch (parsedData.cmd.toUpperCase()) {
+                        case "MSG":
+                            const targetWS = wsClients.get(parsedData.target)
+                            if (!targetWS) ws.send("User not online")
+                            else targetWS.send(ws.session.phone_no + ": " + parsedData.data)
+                            break
+                        default:
+                            ws.send(ws.session.phone_no + ": " + data)
+                    }
+                } catch (error) {
+                    ws.send("Invalid JSON data")
                 }
             })
             ws.on('close', () => {
                 console.log(`Closing websocket for ${ws.session?.phone_no}`)
-                wsClients.delete(ws.session?.phone_no)
+                wsClients.delete(ws.session?.id)
                 ws.close()
             })
         })
@@ -64,6 +68,6 @@ module.exports = {
                 ws.isAlive = false
                 ws.ping(() => { })
             })
-        }, 5000)
+        }, 10000)
     }
 }
