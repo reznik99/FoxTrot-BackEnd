@@ -5,7 +5,7 @@ const { wsClients } = require('./websockets')
 
 const createRoutes = (app, passport) => {
 
-    app.post('/login', (req, res, next) => {
+    app.post('/foxtrot-api/login', (req, res, next) => {
         passport.authenticate('login', (err, user, info) => {
             console.log(`/login called by user ${user.phone_no}`)
 
@@ -35,7 +35,7 @@ const createRoutes = (app, passport) => {
         })(req, res, next)
     })
 
-    app.post('/signup', (req, res, next) => {
+    app.post('/foxtrot-api/signup', (req, res, next) => {
         passport.authenticate('register', (err, user, info) => {
             if (err) {
                 console.error(`error ${err}`)
@@ -53,7 +53,7 @@ const createRoutes = (app, passport) => {
     })
 
     // Protected Routes
-    app.post('/savePublicKey', (req, res, next) => {
+    app.post('/foxtrot-api/savePublicKey', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             console.log(`/savePublicKey called by user ${user.phone_no}`)
 
@@ -83,7 +83,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.post('/sendMessage', (req, res, next) => {
+    app.post('/foxtrot-api/sendMessage', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/sendMessage called by user ${user.phone_no}`)
 
@@ -123,7 +123,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.post('/addContact', (req, res, next) => {
+    app.post('/foxtrot-api/addContact', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/addContact called by user ${user.phone_no}`)
 
@@ -152,7 +152,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.delete('/removeContact', (req, res, next) => {
+    app.delete('/foxtrot-api/removeContact', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/removeContact called by user ${user.phone_no}`)
 
@@ -178,7 +178,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.get('/getContacts', (req, res, next) => {
+    app.get('/foxtrot-api/getContacts', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/getContacts called by user ${user.phone_no}`)
 
@@ -200,7 +200,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.get('/searchUsers/:prefix', (req, res, next) => {
+    app.get('/foxtrot-api/searchUsers/:prefix', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/searchUsers/:prefix called by user ${user.phone_no}`)
 
@@ -223,7 +223,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.get('/getConversations', (req, res, next) => {
+    app.get('/foxtrot-api/getConversations', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/getConversations called by user ${user.phone_no}`)
 
@@ -244,7 +244,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.get('/validateToken', (req, res, next) => {
+    app.get('/foxtrot-api/validateToken', (req, res, next) => {
         console.log(`/validateToken called`)
         passport.authenticate('jwt', (err, user, info) => {
             if (err || info !== undefined) {

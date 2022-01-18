@@ -9,7 +9,7 @@ module.exports = {
     wsClients: wsClients,
     configureWebsocket: (expressServer) => {
         // Define the WebSocket server. Here, the server mounts to the `/ws` route of the Express JS server.
-        const wss = new wslib.Server({ server: expressServer, path: '/ws' })
+        const wss = new wslib.Server({ server: expressServer, path: '/foxtrot-api/ws' })
 
 
         wss.on('connection', (ws, req) => {
