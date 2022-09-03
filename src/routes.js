@@ -11,7 +11,7 @@ const createRoutes = (app, passport) => {
 
             if (err) {
                 console.error(`error ${err}`)
-                res.status(500)
+                res.status(500).send()
             }
 
             else if (info !== undefined) {
@@ -39,7 +39,7 @@ const createRoutes = (app, passport) => {
         passport.authenticate('register', (err, user, info) => {
             if (err) {
                 console.error(`error ${err}`)
-                res.status(500)
+                res.status(500).send()
             }
             if (info !== undefined) {
                 console.error(info.message)
@@ -59,26 +59,25 @@ const createRoutes = (app, passport) => {
 
             if (err) {
                 console.error(`error ${err}`)
-                res.status(500)
+                res.status(500).send()
             }
             if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
-                let publicKey = req.body.publicKey
                 try {
-                    let result = await pool.query('SELECT public_key WHERE id = $1', [user.id])
-
-                    if (result.rows[0] == '') {
-                        await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, user.id])
+                    const { rows } = await pool.query('SELECT public_key from users WHERE id = $1', [user.id])
+                    
+                    if (!rows[0]?.public_key) {
+                        await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [req.body.publicKey, user.id])
                         res.status(200).send({ message: 'Stored public key' })
                     } else {
-                        console.error(`User ${user.phone_no} trying to overwrite account\'s public key. Rejected`)
-                        res.status(403)
+                        console.warn(`User ${user.phone_no} trying to overwrite account\'s public key. Rejected`)
+                        res.status(403).send()
                     }
                 } catch (error) {
-                    console.error(err)
-                    res.status(500)
+                    console.error(error)
+                    res.status(500).send()
                 }
             }
         })(req, res, next)
