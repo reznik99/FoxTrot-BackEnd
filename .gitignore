@@ -1,3 +1,5 @@
 node_modules/
 
 *.env*
+
+foxtrot-push-notifications-firebase-adminsdk.json

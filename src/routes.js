@@ -3,6 +3,23 @@ const jwtSecret = require('./config/jwtConfig')
 const pool = require('./config/dbConfig').pool
 const { wsClients } = require('./websockets')
 
+const admin = require("firebase-admin");
+
+const serviceAccount = require("./config/foxtrot-push-notifications-firebase-adminsdk.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+// await admin.messaging().sendMulticast({
+//     tokens,
+//     notification: {
+//         title,
+//         body,
+//         imageUrl,
+//     },
+// });
+
 const createRoutes = (app, passport) => {
 
     app.post('/foxtrot-api/login', (req, res, next) => {
