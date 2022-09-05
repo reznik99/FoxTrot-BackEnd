@@ -123,9 +123,9 @@ const createRoutes = (app, passport) => {
                         await admin.messaging().send({
                             token: devices.get(contact_id),
                             notification: {
-                                title: 'Title',
+                                title: `🔔 Message from ${contact_id}`,
                                 body: message,
-                                imageUrl: `https://robohash.org/${user.id}`,
+                                imageUrl: `https://robohash.org/${contact_id}`,
                             },
                         });
                     }
@@ -287,7 +287,7 @@ const createRoutes = (app, passport) => {
                 try {
                     console.log(`UserDevice token ${req.body.token}`)
                     // TODO: Store Device Token in Database for persistance
-                    devices.set(user.phone_no, req.body.token)
+                    devices.set(user.id, req.body.token)
                 } catch (error) {
                     console.error(error)
                     res.status(500).send()
