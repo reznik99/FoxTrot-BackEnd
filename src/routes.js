@@ -120,7 +120,7 @@ const createRoutes = (app, passport) => {
                         targetWS.send(JSON.stringify(msg))
                     } else if(devices.has(contact_id)){
                         console.log('Recipient offline! Sending Push notification')
-                        await admin.messaging().send({
+                        const fcmID = await admin.messaging().send({
                             token: devices.get(contact_id),
                             notification: {
                                 title: `🔔 Message from ${contact_id}`,
@@ -128,6 +128,7 @@ const createRoutes = (app, passport) => {
                                 imageUrl: `https://robohash.org/${contact_id}`,
                             },
                         });
+                        console.log('Msg fcm id:', fcmID)
                     }
 
                     await pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
@@ -288,6 +289,7 @@ const createRoutes = (app, passport) => {
                     console.log(`UserDevice token ${req.body.token}`)
                     // TODO: Store Device Token in Database for persistance
                     devices.set(user.id, req.body.token)
+                    res.status(200).send('Registered')
                 } catch (error) {
                     console.error(error)
                     res.status(500).send()
