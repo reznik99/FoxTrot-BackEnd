@@ -36,7 +36,7 @@ module.exports = (passport) => {
 
                 // Create new user (HASH PASSWORD)
                 bcrypt.hash(password, BCRYPT_SALT_ROUNDS, (err, hash) => {
-                    pool.query('INSERT INTO users VALUES ($1, $2) RETURNING *', [phone_no, hash], (err, results) => {
+                    pool.query('INSERT INTO users(phone_no, password) VALUES ($1, $2) RETURNING *', [phone_no, hash], (err, results) => {
                         // Catch both bcrypt and psql errors, log them and return generic internal error
                         if (err) {
                             console.error(err)

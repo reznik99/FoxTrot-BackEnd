@@ -1,16 +1,17 @@
 const jwt = require('jsonwebtoken')
 const jwtSecret = require('./config/jwtConfig')
 const pool = require('./config/dbConfig').pool
+const { wsClients } = require('./websockets')
 
 const createRoutes = (app, passport) => {
 
-    app.post('/login', (req, res, next) => {
+    app.post('/foxtrot-api/login', (req, res, next) => {
         passport.authenticate('login', (err, user, info) => {
             console.log(`/login called by user ${user.phone_no}`)
 
             if (err) {
                 console.error(`error ${err}`)
-                res.status(500)
+                res.status(500).send()
             }
 
             else if (info !== undefined) {
@@ -34,11 +35,11 @@ const createRoutes = (app, passport) => {
         })(req, res, next)
     })
 
-    app.post('/signup', (req, res, next) => {
+    app.post('/foxtrot-api/signup', (req, res, next) => {
         passport.authenticate('register', (err, user, info) => {
             if (err) {
                 console.error(`error ${err}`)
-                res.status(500)
+                res.status(500).send()
             }
             if (info !== undefined) {
                 console.error(info.message)
@@ -52,37 +53,36 @@ const createRoutes = (app, passport) => {
     })
 
     // Protected Routes
-    app.post('/savePublicKey', (req, res, next) => {
+    app.post('/foxtrot-api/savePublicKey', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             console.log(`/savePublicKey called by user ${user.phone_no}`)
 
             if (err) {
                 console.error(`error ${err}`)
-                res.status(500)
+                res.status(500).send()
             }
             if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
-                let publicKey = req.body.publicKey
                 try {
-                    let result = await pool.query('SELECT public_key WHERE id = $1', [user.id])
-
-                    if (result.rows[0] == '') {
-                        await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, user.id])
+                    const { rows } = await pool.query('SELECT public_key from users WHERE id = $1', [user.id])
+                    
+                    if (!rows[0]?.public_key) {
+                        await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [req.body.publicKey, user.id])
                         res.status(200).send({ message: 'Stored public key' })
                     } else {
-                        console.error(`User ${user.phone_no} trying to overwrite account\'s public key. Rejected`)
-                        res.status(403)
+                        console.warn(`User ${user.phone_no} trying to overwrite account\'s public key. Rejected`)
+                        res.status(403).send()
                     }
                 } catch (error) {
-                    console.error(err)
-                    res.status(500)
+                    console.error(error)
+                    res.status(500).send()
                 }
             }
         })(req, res, next)
     })
-    app.post('/sendMessage', (req, res, next) => {
+    app.post('/foxtrot-api/sendMessage', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/sendMessage called by user ${user.phone_no}`)
 
@@ -95,8 +95,22 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message)
             } else {
                 let { message, contact_id } = req.body
-                console.log(message)
-                console.log(contact_id)
+                console.log(message + " " + contact_id)
+                // Attempt to send the message directly to the online user, as a notification
+                const targetWS = wsClients.get(contact_id)
+                if (targetWS) {
+                    console.log('Recipient online! Using websocket')
+                    const msg = {
+                        sender: user.phone_no,
+                        message: message,
+                        reciever: targetWS.session.phone_no,
+                        sent_at: Date.now(),
+                        seen: false
+                    }
+                    targetWS.send(JSON.stringify(msg))
+                } else {
+                    console.log('Recipient offline!')
+                }
                 pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
                     .then(result => {
                         res.status(200).send({ message: 'Message Sent' })
@@ -108,7 +122,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.post('/addContact', (req, res, next) => {
+    app.post('/foxtrot-api/addContact', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/addContact called by user ${user.phone_no}`)
 
@@ -137,7 +151,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.delete('/removeContact', (req, res, next) => {
+    app.delete('/foxtrot-api/removeContact', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/removeContact called by user ${user.phone_no}`)
 
@@ -163,7 +177,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.get('/getContacts', (req, res, next) => {
+    app.get('/foxtrot-api/getContacts', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/getContacts called by user ${user.phone_no}`)
 
@@ -185,7 +199,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.get('/searchUsers/:prefix', (req, res, next) => {
+    app.get('/foxtrot-api/searchUsers/:prefix', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/searchUsers/:prefix called by user ${user.phone_no}`)
 
@@ -208,7 +222,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.get('/getConversations', (req, res, next) => {
+    app.get('/foxtrot-api/getConversations', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             console.log(`/getConversations called by user ${user.phone_no}`)
 
@@ -229,7 +243,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.get('/validateToken', (req, res, next) => {
+    app.get('/foxtrot-api/validateToken', (req, res, next) => {
         console.log(`/validateToken called`)
         passport.authenticate('jwt', (err, user, info) => {
             if (err || info !== undefined) {
