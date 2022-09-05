@@ -4,7 +4,6 @@ const pool = require('./config/dbConfig').pool
 const { wsClients } = require('./websockets')
 
 const admin = require("firebase-admin");
-
 const serviceAccount = require("./config/foxtrot-push-notifications-firebase-adminsdk.json");
 
 admin.initializeApp({
