@@ -11,14 +11,7 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-// await admin.messaging().sendMulticast({
-//     tokens,
-//     notification: {
-//         title,
-//         body,
-//         imageUrl,
-//     },
-// });
+const devices = new Map()
 
 const createRoutes = (app, passport) => {
 
@@ -100,7 +93,7 @@ const createRoutes = (app, passport) => {
         })(req, res, next)
     })
     app.post('/foxtrot-api/sendMessage', (req, res, next) => {
-        passport.authenticate('jwt', (err, user, info) => {
+        passport.authenticate('jwt', async (err, user, info) => {
             console.log(`/sendMessage called by user ${user.phone_no}`)
 
             if (err) {
@@ -112,30 +105,39 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message)
             } else {
                 let { message, contact_id } = req.body
-                console.log(message + " " + contact_id)
-                // Attempt to send the message directly to the online user, as a notification
-                const targetWS = wsClients.get(contact_id)
-                if (targetWS) {
-                    console.log('Recipient online! Using websocket')
-                    const msg = {
-                        sender: user.phone_no,
-                        message: message,
-                        reciever: targetWS.session.phone_no,
-                        sent_at: Date.now(),
-                        seen: false
+
+                try {
+                    // Attempt to send the message directly to the online user, as a notification
+                    const targetWS = wsClients.get(contact_id)
+                    if (targetWS) {
+                        console.log('Recipient online! Using websocket')
+                        const msg = {
+                            sender: user.phone_no,
+                            message: message,
+                            reciever: targetWS.session.phone_no,
+                            sent_at: Date.now(),
+                            seen: false
+                        }
+                        targetWS.send(JSON.stringify(msg))
+                    } else if(devices.has(contact_id)){
+                        console.log('Recipient offline! Sending Push notification')
+                        await admin.messaging().send({
+                            token: devices.get(contact_id),
+                            notification: {
+                                title: 'Title',
+                                body: message,
+                                imageUrl: `https://robohash.org/${user.id}`,
+                            },
+                        });
                     }
-                    targetWS.send(JSON.stringify(msg))
-                } else {
-                    console.log('Recipient offline!')
+
+                    await pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
+                    
+                    res.status(200).send({ message: 'Message Sent' })
+                } catch (err) {
+                    console.error('Error:', err)
+                    res.status(500)
                 }
-                pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
-                    .then(result => {
-                        res.status(200).send({ message: 'Message Sent' })
-                    })
-                    .catch(err => {
-                        console.error(err)
-                        res.status(500)
-                    })
             }
         })(req, res, next)
     })
@@ -268,6 +270,34 @@ const createRoutes = (app, passport) => {
                 res.status(401).send({ valid: false }) // token expired!
             } else {
                 res.status(200).send({ valid: true })  // token valid
+            }
+        })(req, res, next)
+    })
+    app.get('/foxtrot-api/registerPushNotifications', (req, res, next) => {
+        console.log('/registerPushNotifications called')
+        passport.authenticate('jwt', async (err, user, info) => {
+
+            if (err) {
+                console.error(`error ${err}`)
+                res.status(500).send()
+            }
+            if (info !== undefined) {
+                console.error(info.message)
+                res.status(403).send(info.message)
+            } else {
+                try {
+                    console.log(`UserDevice token ${req.body.token}`)
+                    if (!devices.length) {
+                        console.error('No devices registered for notification')
+                        res.status(503).send(info.message)
+                    }
+
+                    // TODO: Store Device Token in Database for persistance
+                    devices.set(user.phone_no, req.body.token)
+                } catch (error) {
+                    console.error(error)
+                    res.status(500).send()
+                }
             }
         })(req, res, next)
     })
