@@ -272,7 +272,7 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
-    app.get('/foxtrot-api/registerPushNotifications', (req, res, next) => {
+    app.post('/foxtrot-api/registerPushNotifications', (req, res, next) => {
         console.log('/registerPushNotifications called')
         passport.authenticate('jwt', async (err, user, info) => {
 
