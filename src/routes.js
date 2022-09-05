@@ -286,11 +286,6 @@ const createRoutes = (app, passport) => {
             } else {
                 try {
                     console.log(`UserDevice token ${req.body.token}`)
-                    if (!devices.length) {
-                        console.error('No devices registered for notification')
-                        res.status(503).send(info.message)
-                    }
-
                     // TODO: Store Device Token in Database for persistance
                     devices.set(user.phone_no, req.body.token)
                 } catch (error) {
