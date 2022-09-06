@@ -37,6 +37,7 @@ const createRoutes = (app, passport) => {
                     res.status(200).send({
                         auth: true,
                         token,
+                        user_data: { id: user.id, phone_no: user.phone_no },
                         message: 'user found & logged in',
                     })
                 })
@@ -126,9 +127,9 @@ const createRoutes = (app, passport) => {
                         const fcmID = await admin.messaging().send({
                             token: devices.get(contact_id),
                             notification: {
-                                title: `Message from ${contact_id}`,
+                                title: `Message from ${user.phone_no}`,
                                 body: message,
-                                imageUrl: `https://robohash.org/${contact_id}`,
+                                imageUrl: `https://robohash.org/${user.id}`,
                             },
                         });
                         console.log('Msg fcm id:', fcmID)
