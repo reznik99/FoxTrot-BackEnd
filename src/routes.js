@@ -3,6 +3,15 @@ const jwtSecret = require('./config/jwtConfig')
 const pool = require('./config/dbConfig').pool
 const { wsClients } = require('./websockets')
 
+const admin = require("firebase-admin");
+const serviceAccount = require("./config/foxtrot-push-notifications-firebase-adminsdk.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+const devices = new Map()
+
 const createRoutes = (app, passport) => {
 
     app.post('/foxtrot-api/login', (req, res, next) => {
@@ -28,6 +37,7 @@ const createRoutes = (app, passport) => {
                     res.status(200).send({
                         auth: true,
                         token,
+                        user_data: { id: user.id, phone_no: user.phone_no },
                         message: 'user found & logged in',
                     })
                 })
@@ -83,42 +93,56 @@ const createRoutes = (app, passport) => {
         })(req, res, next)
     })
     app.post('/foxtrot-api/sendMessage', (req, res, next) => {
-        passport.authenticate('jwt', (err, user, info) => {
+        passport.authenticate('jwt', async (err, user, info) => {
             console.log(`/sendMessage called by user ${user.phone_no}`)
 
             if (err) {
                 console.error(`error ${err}`)
-                res.status(500)
+                res.status(500).send()
             }
             if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
                 let { message, contact_id } = req.body
-                console.log(message + " " + contact_id)
-                // Attempt to send the message directly to the online user, as a notification
-                const targetWS = wsClients.get(contact_id)
-                if (targetWS) {
-                    console.log('Recipient online! Using websocket')
-                    const msg = {
-                        sender: user.phone_no,
-                        message: message,
-                        reciever: targetWS.session.phone_no,
-                        sent_at: Date.now(),
-                        seen: false
+
+                try {
+                    // Attempt to send the message directly to the online user, as a websocket -> local-notification
+                    const targetWS = wsClients.get(contact_id)
+                    if (targetWS) {
+                        console.log('Recipient online! Using websocket')
+                        const msg = {
+                            sender: user.phone_no,
+                            sender_id: user.id,
+                            message: message,
+                            reciever: targetWS.session.phone_no,
+                            reciever_id: targetWS.session.id,
+                            sent_at: Date.now(),
+                            seen: false
+                        }
+                        targetWS.send(JSON.stringify(msg))
+                    // Attempt to send the message to the user -> push-notification
+                    } else if(devices.has(contact_id)){
+                        console.log('Recipient offline! Sending Push notification')
+                        const fcmID = await admin.messaging().send({
+                            token: devices.get(contact_id),
+                            notification: {
+                                title: `Message from ${user.phone_no}`,
+                                body: message,
+                                imageUrl: `https://robohash.org/${user.id}`,
+                            },
+                        });
+                        console.log('Msg fcm id:', fcmID)
                     }
-                    targetWS.send(JSON.stringify(msg))
-                } else {
-                    console.log('Recipient offline!')
+
+                    // Store message
+                    await pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
+                    
+                    res.status(200).send({ message: 'Message Sent' })
+                } catch (err) {
+                    console.error('Error:', err)
+                    res.status(500).send()
                 }
-                pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
-                    .then(result => {
-                        res.status(200).send({ message: 'Message Sent' })
-                    })
-                    .catch(err => {
-                        console.error(err)
-                        res.status(500)
-                    })
             }
         })(req, res, next)
     })
@@ -251,6 +275,30 @@ const createRoutes = (app, passport) => {
                 res.status(401).send({ valid: false }) // token expired!
             } else {
                 res.status(200).send({ valid: true })  // token valid
+            }
+        })(req, res, next)
+    })
+    app.post('/foxtrot-api/registerPushNotifications', (req, res, next) => {
+        console.log('/registerPushNotifications called')
+        passport.authenticate('jwt', async (err, user, info) => {
+
+            if (err) {
+                console.error(`error ${err}`)
+                res.status(500).send()
+            }
+            if (info !== undefined) {
+                console.error(info.message)
+                res.status(403).send(info.message)
+            } else {
+                try {
+                    console.log(`UserDevice token ${req.body.token}`)
+                    // TODO: Store Device Token in Database for persistance
+                    devices.set(user.id, req.body.token)
+                    res.status(200).send('Registered')
+                } catch (error) {
+                    console.error(error)
+                    res.status(500).send()
+                }
             }
         })(req, res, next)
     })

@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken')
 const jwtConfig = require('./config/jwtConfig')
 
 const wsClients = new Map()
+const socketPingMs = 30000
 
 module.exports = {
     wsClients: wsClients,
@@ -23,7 +24,7 @@ module.exports = {
                     wsClients.set(decoded.id, ws)
                     ws.isAlive = true
                     ws.session = decoded
-                    console.log(`New Websocket connection established for ${decoded.phone_no}`)
+                    console.log(`Websocket connection established for ${decoded.phone_no}`)
                 }
             })
 
@@ -68,6 +69,6 @@ module.exports = {
                 ws.isAlive = false
                 ws.ping(() => { })
             })
-        }, 10000)
+        }, socketPingMs)
     }
 }
