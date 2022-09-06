@@ -97,7 +97,7 @@ const createRoutes = (app, passport) => {
 
             if (err) {
                 console.error(`error ${err}`)
-                res.status(500)
+                res.status(500).send()
             }
             if (info !== undefined) {
                 console.error(info.message)
@@ -106,7 +106,7 @@ const createRoutes = (app, passport) => {
                 let { message, contact_id } = req.body
 
                 try {
-                    // Attempt to send the message directly to the online user, as a notification
+                    // Attempt to send the message directly to the online user, as a websocket -> local-notification
                     const targetWS = wsClients.get(contact_id)
                     if (targetWS) {
                         console.log('Recipient online! Using websocket')
@@ -120,12 +120,13 @@ const createRoutes = (app, passport) => {
                             seen: false
                         }
                         targetWS.send(JSON.stringify(msg))
+                    // Attempt to send the message to the user -> push-notification
                     } else if(devices.has(contact_id)){
                         console.log('Recipient offline! Sending Push notification')
                         const fcmID = await admin.messaging().send({
                             token: devices.get(contact_id),
                             notification: {
-                                title: `🔔 Message from ${contact_id}`,
+                                title: `Message from ${contact_id}`,
                                 body: message,
                                 imageUrl: `https://robohash.org/${contact_id}`,
                             },
@@ -133,12 +134,13 @@ const createRoutes = (app, passport) => {
                         console.log('Msg fcm id:', fcmID)
                     }
 
+                    // Store message
                     await pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
                     
                     res.status(200).send({ message: 'Message Sent' })
                 } catch (err) {
                     console.error('Error:', err)
-                    res.status(500)
+                    res.status(500).send()
                 }
             }
         })(req, res, next)
