@@ -112,8 +112,10 @@ const createRoutes = (app, passport) => {
                         console.log('Recipient online! Using websocket')
                         const msg = {
                             sender: user.phone_no,
+                            sender_id: user.id,
                             message: message,
                             reciever: targetWS.session.phone_no,
+                            reciever_id: targetWS.session.id,
                             sent_at: Date.now(),
                             seen: false
                         }
