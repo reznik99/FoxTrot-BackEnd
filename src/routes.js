@@ -163,7 +163,8 @@ const createRoutes = (app, passport) => {
                 pool.query('INSERT INTO contacts VALUES ($1, $2) RETURNING *', [user.id, data.id])
                     .then(result => {
                         res.status(200).send({
-                            message: 'Contact added'
+                            message: 'Contact added',
+                            user_data: result.rows[0]
                         })
                     })
                     .catch(err => {
@@ -237,7 +238,6 @@ const createRoutes = (app, passport) => {
                 pool.query("SELECT id, phone_no, public_key FROM users WHERE phone_no LIKE $1 AND phone_no != $2 LIMIT 10", [prefix + '%', user.phone_no])
                     .then(result => {
                         res.status(200).send(result.rows)
-
                     })
                     .catch(err => {
                         res.status(500)
