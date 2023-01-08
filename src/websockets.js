@@ -42,12 +42,12 @@ module.exports = {
                     const parsedData = JSON.parse(data)
                     switch (parsedData.cmd) {
                         case "CALL_OFFER": // Forward webrtc peer offer
-                            if (!wsClients.has(parsedData.data.reciever_id)) {
+                            if (!wsClients.has(parsedData.reciever_id)) {
                                 ws.send("User not online")
                                 // TODO: Handle this case using push notifications
                                 return
                             }
-                            const targetWS = wsClients.get(parsedData.data.reciever_id)
+                            const targetWS = wsClients.get(parsedData.reciever_id)
                             targetWS.send(JSON.stringify({...parsedData, sender_id: ws.session.id, sender: ws.session.phone_no}))
                             break
                         default:                                                                                                                                        
