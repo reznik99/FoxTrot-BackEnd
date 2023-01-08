@@ -123,7 +123,7 @@ const createRoutes = (app, passport) => {
                         const msg = {
                             cmd: 'MSG',
                             data: data,
-                            ...data // For backwards compatibility
+                            ...data // TODO: For backwards compatibility - remove later
                         }
                         targetWS.send(JSON.stringify(msg))
                     } else {

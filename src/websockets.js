@@ -29,9 +29,7 @@ module.exports = {
             })
 
             // Handlers
-            ws.on('pong', () => {
-                ws.isAlive = true
-            })
+            ws.on('pong', () => { ws.isAlive = true })
             ws.on('message', (data) => {
                 jwt.verify(token, jwtConfig.secret, (err, decoded) => {
                     if (err) {
@@ -43,16 +41,21 @@ module.exports = {
                 try {
                     const parsedData = JSON.parse(data)
                     switch (parsedData.cmd) {
-                        case "CALL": // Forward webrtc peer offer
-                            if (!wsClients.has(parsedData.data.reciever_id)) ws.send("User not online")
+                        case "CALL_OFFER": // Forward webrtc peer offer
+                            if (!wsClients.has(parsedData.data.reciever_id)) {
+                                ws.send("User not online")
+                                // TODO: Handle this case using push notifications
+                                return
+                            }
                             const targetWS = wsClients.get(parsedData.data.reciever_id)
                             targetWS.send(JSON.stringify({...parsedData, sender_id: ws.session.id, sender: ws.session.phone_no}))
                             break
                         default:                                                                                                                                        
-                            console.warn('Unknown Websocket command recieved: ', parsedData.cmd)
+                            throw new Error(`Unknown command recieved: ${parsedData.cmd}`)
                     }
-                } catch (error) {
+                } catch (err) {
                     ws.send("Invalid JSON data")
+                    console.warn('Websocket message error: ', err.message || err)
                 }
             })
             ws.on('close', () => {
