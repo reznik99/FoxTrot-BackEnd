@@ -104,11 +104,14 @@ const createRoutes = (app, passport) => {
                 let { message, contact_id } = req.body
 
                 try {
+                    // Store message asyncronously
+                    pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
+
                     // Attempt to send the message directly to the online user, as a websocket -> local-notification
                     const targetWS = wsClients.get(contact_id)
                     if (targetWS) {
                         console.log('Recipient online! Using websocket')
-                        const msg = {
+                        const data = {
                             sender: user.phone_no,
                             sender_id: user.id,
                             message: message,
@@ -117,24 +120,26 @@ const createRoutes = (app, passport) => {
                             sent_at: Date.now(),
                             seen: false
                         }
+                        const msg = {
+                            cmd: 'MSG',
+                            data: data,
+                            ...data // For backwards compatibility
+                        }
                         targetWS.send(JSON.stringify(msg))
-                    // Attempt to send the message to the user -> push-notification
-                    } else if(devices.has(contact_id)){
+                    } else {
+                        // Attempt to send the message to the user -> push-notification
                         console.log('Recipient offline! Sending Push notification')
-                        const fcmID = await admin.messaging().send({
-                            token: devices.get(contact_id),
+                        const fcm_token = await getFCMToken(contact_id)
+                        await admin.messaging().send({
+                            token: fcm_token,
                             notification: {
                                 title: `Message from ${user.phone_no}`,
                                 body: message,
                                 imageUrl: `https://robohash.org/${user.id}`,
                             },
                         });
-                        console.log('Msg fcm id:', fcmID)
                     }
 
-                    // Store message
-                    await pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
-                    
                     res.status(200).send({ message: 'Message Sent' })
                 } catch (err) {
                     console.error('Error:', err)
@@ -289,8 +294,9 @@ const createRoutes = (app, passport) => {
             } else {
                 try {
                     console.log(`UserDevice token ${req.body.token}`)
-                    // TODO: Store Device Token in Database for persistance
+                    // Cache token in memory and in Database
                     devices.set(user.id, req.body.token)
+                    await pool.query('UPDATE users SET fcm_token = $1 WHERE id = $2', [req.body.token, user.id])
                     res.status(200).send('Registered')
                 } catch (error) {
                     console.error(error)
@@ -299,6 +305,15 @@ const createRoutes = (app, passport) => {
             }
         })(req, res, next)
     })
+}
+
+
+const getFCMToken = async (contact_id) => {
+    if (devices.has(contact_id)) return devices.get(contact_id)
+
+    const res = await pool.query('SELECT fcm_token from users where user_id = $1', [contact_id])
+    console.log(res.data)
+    return res.data[0].fcm_token
 }
 
 module.exports = createRoutes
