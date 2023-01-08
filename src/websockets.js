@@ -42,14 +42,14 @@ module.exports = {
                 console.log(data.toString())
                 try {
                     const parsedData = JSON.parse(data)
-                    switch (parsedData.cmd.toUpperCase()) {
-                        case "MSG":
-                            const targetWS = wsClients.get(parsedData.target)
-                            if (!targetWS) ws.send("User not online")
-                            else targetWS.send(ws.session.phone_no + ": " + parsedData.data)
+                    switch (parsedData.cmd) {
+                        case "CALL": // Forward webrtc peer offer
+                            if (!wsClients.has(parsedData.data.reciever_id)) ws.send("User not online")
+                            const targetWS = wsClients.get(parsedData.data.reciever_id)
+                            targetWS.send(JSON.stringify({...parsedData, sender_id: ws.session.id, sender: ws.session.phone_no}))
                             break
-                        default:
-                            ws.send(ws.session.phone_no + ": " + data)
+                        default:                                                                                                                                        
+                            console.warn('Unknown Websocket command recieved: ', parsedData.cmd)
                     }
                 } catch (error) {
                     ws.send("Invalid JSON data")
