@@ -7,7 +7,7 @@ const admin = require("firebase-admin");
 const serviceAccount = require("./config/foxtrot-push-notifications-firebase-adminsdk.json");
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+    credential: admin.credential.cert(serviceAccount),
 });
 
 const devices = new Map()
@@ -16,19 +16,14 @@ const createRoutes = (app, passport) => {
 
     app.post('/foxtrot-api/login', (req, res, next) => {
         passport.authenticate('login', (err, user, info) => {
-            console.log(`/login called by user ${user.phone_no}`)
+            console.log(`/login called by user ${user?.phone_no}`)
 
             if (err) {
-                console.error(`error ${err}`)
+                console.error("/login error: ", err)
                 res.status(500).send()
-            }
-
-            else if (info !== undefined) {
-                console.error(info.message)
-                if (info.message === 'Invalid username and/or password')
-                    res.status(401).send(info.message)
-                else
-                    res.status(403).send(info.message)
+            } else if (info !== undefined) {
+                console.error("/login error: ", info.message)
+                res.status(401).send(info.message)
             } else {
                 req.logIn(user, () => {
                     const token = jwt.sign({ id: user.id, phone_no: user.phone_no }, jwtSecret.secret, {
@@ -37,25 +32,27 @@ const createRoutes = (app, passport) => {
                     res.status(200).send({
                         auth: true,
                         token,
-                        user_data: { id: user.id, phone_no: user.phone_no },
+                        user_data: { id: user.id, phone_no: user.phone_no, public_key: user.public_key },
                         message: 'user found & logged in',
                     })
                 })
             }
         })(req, res, next)
     })
-
     app.post('/foxtrot-api/signup', (req, res, next) => {
         passport.authenticate('register', (err, user, info) => {
+            console.log(`/signup called by user ${user?.phone_no}`)
+
             if (err) {
-                console.error(`error ${err}`)
+                console.error("/signup error: ", err)
                 res.status(500).send()
             }
             if (info !== undefined) {
-                console.error(info.message)
+                console.error("/signup error: ", info.message)
                 res.status(403).send(info.message)
             } else {
                 res.status(200).send({
+                    user_data: { id: user.id, phone_no: user.phone_no, public_key: user.public_key },
                     message: 'user created',
                 })
             }
@@ -77,7 +74,7 @@ const createRoutes = (app, passport) => {
             } else {
                 try {
                     const { rows } = await pool.query('SELECT public_key from users WHERE id = $1', [user.id])
-                    
+
                     if (!rows[0]?.public_key) {
                         await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [req.body.publicKey, user.id])
                         res.status(200).send({ message: 'Stored public key' })
