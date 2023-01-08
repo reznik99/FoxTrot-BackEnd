@@ -101,7 +101,7 @@ const createRoutes = (app, passport) => {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
-                let { message, contact_id } = req.body
+                let { message, contact_id, contact_phone_no } = req.body
 
                 try {
                     // Store message asyncronously
@@ -130,6 +130,11 @@ const createRoutes = (app, passport) => {
                         // Attempt to send the message to the user -> push-notification
                         console.log('Recipient offline! Sending Push notification')
                         const fcm_token = await getFCMToken(contact_id)
+                        if(!fcm_token) {
+                            console.warn(`/sendMessage: No fcm_token found for ${contact_phone_no}`)
+                            res.status(200).send({ message: 'Message Sent. Push Notification failed to send' })
+                            return
+                        }
                         await admin.messaging().send({
                             token: fcm_token,
                             notification: {
@@ -149,32 +154,32 @@ const createRoutes = (app, passport) => {
         })(req, res, next)
     })
     app.post('/foxtrot-api/addContact', (req, res, next) => {
-        passport.authenticate('jwt', (err, user, info) => {
+        passport.authenticate('jwt', async (err, user, info) => {
             console.log(`/addContact called by user ${user.phone_no}`)
 
             if (err) {
-                console.error(`error ${err}`)
+                console.error("/addContact error: ", err)
                 res.status(500)
-            }
-
-            if (info !== undefined) {
+            }else if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
-                let data = req.body
-                pool.query('INSERT INTO contacts VALUES ($1, $2) RETURNING *', [user.id, data.id])
-                    .then(result => {
-                        res.status(200).send({
-                            message: 'Contact added',
-                            user_data: result.rows[0]
-                        })
+                try{
+                    let data = req.body
+                    await pool.query('INSERT INTO contacts VALUES ($1, $2)', [user.id, data.id])
+                    const results = await pool.query('SELECT * FROM users WHERE id = $1', [data.id])
+                    if(!results.rows[0]) throw new Error("User not found")
+
+                    res.status(200).send({
+                        message: 'Contact added',
+                        ...results.rows[0]
                     })
-                    .catch(err => {
-                        console.error(`Cannot add existing contact`)
-                        res.status(500).send({
-                            message: 'Contact already added'
-                        })
+                } catch(err) {
+                    console.error("/addContact: ", err)
+                    res.status(500).send({
+                        message: 'Failed to add contact'
                     })
+                }
             }
         })(req, res, next)
     })
@@ -205,24 +210,23 @@ const createRoutes = (app, passport) => {
         })(req, res, next)
     })
     app.get('/foxtrot-api/getContacts', (req, res, next) => {
-        passport.authenticate('jwt', (err, user, info) => {
+        passport.authenticate('jwt', async (err, user, info) => {
             console.log(`/getContacts called by user ${user.phone_no}`)
 
-            if (err)
-                console.error(`error ${err}`)
-
-            if (info !== undefined) {
+            if (err) {
+                console.error("/getContacts error: ", err)
+                res.status(500).send()
+            } else if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
-                let data = req.body
-                pool.query('SELECT id, phone_no, public_key FROM users WHERE id IN (SELECT contact_id FROM contacts WHERE user_id = $1)', [user.id], (err, result) => {
-                    if (err) {
-                        console.error(err.stack)
-                    } else {
-                        res.status(200).send(result.rows)
-                    }
-                })
+                try {
+                    const results = await pool.query('SELECT id, phone_no, public_key FROM users WHERE id IN (SELECT contact_id FROM contacts WHERE user_id = $1)', [user.id])
+                    res.status(200).send(results.rows)
+                } catch (err) {
+                    console.error("/getContacts error: ", err)
+                    res.status(500).send()
+                }
             }
         })(req, res, next)
     })
@@ -307,13 +311,13 @@ const createRoutes = (app, passport) => {
     })
 }
 
+// Fetches the fcm_token for push notifications for the specified user and caches it
+const getFCMToken = async (user_id) => {
+    if (devices.has(user_id)) return devices.get(user_id)
 
-const getFCMToken = async (contact_id) => {
-    if (devices.has(contact_id)) return devices.get(contact_id)
-
-    const res = await pool.query('SELECT fcm_token from users where user_id = $1', [contact_id])
-    console.log(res.data)
-    return res.data[0].fcm_token
+    const res = await pool.query('SELECT fcm_token FROM users WHERE id = $1', [user_id])
+    devices.set(user_id, res.rows[0].fcm_token)
+    return res.rows[0].fcm_token
 }
 
 module.exports = createRoutes
