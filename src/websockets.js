@@ -37,15 +37,14 @@ module.exports = {
                         ws.close()
                     }
                 })
-                console.log(data.toString())
                 try {
                     const parsedData = JSON.parse(data)
+                    console.log(`Recieved ${parsedData.cmd} from ${ws.session.phone_no}: ${data.toString()?.length} bytes`)
                     switch (parsedData.cmd) {
                         case "CALL_OFFER":
                         case "CALL_ICE_CANDIDATE":
                         case "CALL_ANSWER": // Forward webrtc peer offer
                             if (!wsClients.has(parsedData.data.reciever_id)) {
-                                ws.send("User not online")
                                 // TODO: Handle this case using push notifications
                                 return
                             }
