@@ -39,11 +39,12 @@ module.exports = {
                 })
                 try {
                     const parsedData = JSON.parse(data)
-                    console.log(`Recieved ${parsedData.cmd} from ${ws.session.phone_no}: ${data.toString()?.length} bytes`)
                     switch (parsedData.cmd) {
+                        // WebRTC Call Signaling logic
                         case "CALL_OFFER":
                         case "CALL_ICE_CANDIDATE":
-                        case "CALL_ANSWER": // Forward webrtc peer offer
+                        case "CALL_ANSWER":
+                            console.log(`ws: (${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${data.toString()?.length} bytes)`)
                             if (!wsClients.has(parsedData.data.reciever_id)) {
                                 // TODO: Handle this case using push notifications
                                 return
