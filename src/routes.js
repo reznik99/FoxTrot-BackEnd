@@ -105,13 +105,14 @@ const createRoutes = (app, passport) => {
 
                 try {
                     // Store message asyncronously
-                    pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4)', [user.id, contact_id, message, false])
+                    const result = await pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4) returning id', [user.id, contact_id, message, false])
 
                     // Attempt to send the message directly to the online user, as a websocket -> local-notification
                     const targetWS = wsClients.get(contact_id)
                     if (targetWS) {
                         console.log('Recipient online! Using websocket')
                         const data = {
+                            id: result.rows[0]?.id,
                             sender: user.phone_no,
                             sender_id: user.id,
                             message: message,
@@ -158,7 +159,7 @@ const createRoutes = (app, passport) => {
 
             if (err) {
                 console.error("/addContact error: ", err)
-                res.status(500)
+                res.status(500).send()
             }else if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
@@ -188,7 +189,7 @@ const createRoutes = (app, passport) => {
 
             if (err) {
                 console.error(`error ${err}`)
-                res.status(500)
+                res.status(500).send()
             }
 
             if (info !== undefined) {
@@ -266,7 +267,7 @@ const createRoutes = (app, passport) => {
                         res.status(200).send(result.rows)
                     })
                     .catch(err => {
-                        res.status(500)
+                        res.status(500).send()
                         console.error(err.stack)
                     })
             }
