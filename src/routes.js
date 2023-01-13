@@ -123,7 +123,6 @@ const createRoutes = (app, passport) => {
                         const msg = {
                             cmd: 'MSG',
                             data: data,
-                            ...data // TODO: For backwards compatibility - remove later
                         }
                         targetWS.send(JSON.stringify(msg))
                     } else {
@@ -262,7 +261,7 @@ const createRoutes = (app, passport) => {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
-                pool.query("SELECT message, sent_at, seen, u1.phone_no AS reciever, u1.id AS reciever_id, u2.phone_no AS sender, u2.id AS sender_id FROM messages AS m INNER JOIN users AS u1 ON m.contact_id = u1.id INNER JOIN users AS u2 ON m.user_id = u2.id  WHERE user_id = $1 OR contact_id = $1 ORDER BY sent_at DESC LIMIT 100", [user.id])
+                pool.query("SELECT id, message, sent_at, seen, u1.phone_no AS reciever, u1.id AS reciever_id, u2.phone_no AS sender, u2.id AS sender_id FROM messages AS m INNER JOIN users AS u1 ON m.contact_id = u1.id INNER JOIN users AS u2 ON m.user_id = u2.id  WHERE user_id = $1 OR contact_id = $1 ORDER BY sent_at DESC LIMIT 100", [user.id])
                     .then(result => {
                         res.status(200).send(result.rows)
                     })
