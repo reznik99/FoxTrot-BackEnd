@@ -69,10 +69,13 @@ module.exports = {
 
         const interval = setInterval(() => {
             wss.clients.forEach((ws) => {
-                console.log(`Pinging ${ws.session?.phone_no}'s websocket`)
-                if (!ws.isAlive) return ws.terminate()
+                if (!ws.isAlive) {
+                    console.log(`${ws.session?.phone_no}'s websocket is dead. Terminating...`)
+                    wsClients.delete(ws.session?.id)
+                    return ws.terminate()
+                }
                 ws.isAlive = false
-                ws.ping(() => { })
+                ws.ping()
             })
         }, socketPingMs)
     }
