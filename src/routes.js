@@ -253,23 +253,31 @@ const createRoutes = (app, passport) => {
         })(req, res, next)
     })
     app.get('/foxtrot-api/getConversations', (req, res, next) => {
-        passport.authenticate('jwt', (err, user, info) => {
+        passport.authenticate('jwt', async (err, user, info) => {
             console.log(`/getConversations called by user ${user.phone_no}`)
 
-            if (err) console.error(`error ${err}`)
-
-            if (info !== undefined) {
+            if (err) {
+                console.error("Error: ", err)
+                res.status(500).send(err.message || err)
+            } else if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
-                pool.query("SELECT m.id, message, sent_at, seen, u1.phone_no AS reciever, u1.id AS reciever_id, u2.phone_no AS sender, u2.id AS sender_id FROM messages AS m INNER JOIN users AS u1 ON m.contact_id = u1.id INNER JOIN users AS u2 ON m.user_id = u2.id  WHERE user_id = $1 OR contact_id = $1 ORDER BY sent_at DESC LIMIT 100", [user.id])
-                    .then(result => {
-                        res.status(200).send(result.rows)
-                    })
-                    .catch(err => {
-                        res.status(500).send()
-                        console.error(err.stack)
-                    })
+                try {
+                    const since = new Date(parseInt(req.query.since) || 0)
+                    const result = await pool.query(`
+                        SELECT m.id, message, sent_at, seen, u1.phone_no AS reciever, u1.id AS reciever_id, u2.phone_no AS sender, u2.id AS sender_id 
+                            FROM messages AS m 
+                            INNER JOIN users AS u1 ON m.contact_id = u1.id 
+                            INNER JOIN users AS u2 ON m.user_id = u2.id 
+                        WHERE (user_id = $1 OR contact_id = $1) AND sent_at > $2::timestamptz
+                        ORDER BY sent_at DESC 
+                        LIMIT 100`, [user.id, since])
+                    res.status(200).send(result.rows)
+                } catch (err) {
+                    console.error(err)
+                    res.status(500).send()
+                }
             }
         })(req, res, next)
     })
