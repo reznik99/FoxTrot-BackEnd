@@ -272,7 +272,8 @@ const createRoutes = (app, passport) => {
                             INNER JOIN users AS u2 ON m.user_id = u2.id 
                         WHERE (user_id = $1 OR contact_id = $1) AND sent_at > $2::timestamptz
                         ORDER BY sent_at DESC 
-                        LIMIT 100`, [user.id, since])
+                        LIMIT 1000`, [user.id, since])
+                    console.debug(`${user.phone_no} loaded ${result.rows?.length} messages`)
                     res.status(200).send(result.rows)
                 } catch (err) {
                     console.error(err)
