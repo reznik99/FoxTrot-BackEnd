@@ -16,8 +16,6 @@ const createRoutes = (app, passport) => {
 
     app.post('/foxtrot-api/login', (req, res, next) => {
         passport.authenticate('login', (err, user, info) => {
-            console.log(`/login called by user ${user?.phone_no}`)
-
             if (err) {
                 console.error("/login error: ", err)
                 res.status(500).send()
@@ -41,8 +39,6 @@ const createRoutes = (app, passport) => {
     })
     app.post('/foxtrot-api/signup', (req, res, next) => {
         passport.authenticate('register', (err, user, info) => {
-            console.log(`/signup called by user ${user?.phone_no}`)
-
             if (err) {
                 console.error("/signup error: ", err)
                 res.status(500).send()
@@ -62,8 +58,6 @@ const createRoutes = (app, passport) => {
     // Protected Routes
     app.post('/foxtrot-api/savePublicKey', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
-            console.log(`/savePublicKey called by user ${user.phone_no}`)
-
             if (err) {
                 console.error(`error ${err}`)
                 res.status(500).send()
@@ -91,8 +85,6 @@ const createRoutes = (app, passport) => {
     })
     app.post('/foxtrot-api/sendMessage', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
-            console.log(`/sendMessage called by user ${user.phone_no}`)
-
             if (err) {
                 console.error(`error ${err}`)
                 res.status(500).send()
@@ -139,7 +131,7 @@ const createRoutes = (app, passport) => {
                             token: fcm_token,
                             notification: {
                                 title: `Message from ${user.phone_no}`,
-                                body: message,
+                                body: message.substring(0, 200),
                                 imageUrl: `https://robohash.org/${user.id}`,
                             },
                         });
@@ -155,8 +147,6 @@ const createRoutes = (app, passport) => {
     })
     app.post('/foxtrot-api/addContact', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
-            console.log(`/addContact called by user ${user.phone_no}`)
-
             if (err) {
                 console.error("/addContact error: ", err)
                 res.status(500).send()
@@ -185,8 +175,6 @@ const createRoutes = (app, passport) => {
     })
     app.delete('/foxtrot-api/removeContact', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
-            console.log(`/removeContact called by user ${user.phone_no}`)
-
             if (err) {
                 console.error(`error ${err}`)
                 res.status(500).send()
@@ -211,8 +199,6 @@ const createRoutes = (app, passport) => {
     })
     app.get('/foxtrot-api/getContacts', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
-            console.log(`/getContacts called by user ${user.phone_no}`)
-
             if (err) {
                 console.error("/getContacts error: ", err)
                 res.status(500).send()
@@ -232,8 +218,6 @@ const createRoutes = (app, passport) => {
     })
     app.get('/foxtrot-api/searchUsers/:prefix', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
-            console.log(`/searchUsers/:prefix called by user ${user.phone_no}`)
-
             if (err) console.error(`error ${err}`)
 
             if (info !== undefined) {
@@ -254,8 +238,6 @@ const createRoutes = (app, passport) => {
     })
     app.get('/foxtrot-api/getConversations', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
-            console.log(`/getConversations called by user ${user.phone_no}`)
-
             if (err) {
                 console.error("Error: ", err)
                 res.status(500).send(err.message || err)
@@ -273,7 +255,7 @@ const createRoutes = (app, passport) => {
                         WHERE (user_id = $1 OR contact_id = $1) AND sent_at > $2::timestamptz
                         ORDER BY sent_at DESC 
                         LIMIT 1000`, [user.id, since])
-                    console.debug(`${user.phone_no} loaded ${result.rows?.length} messages`)
+                    
                     res.status(200).send(result.rows)
                 } catch (err) {
                     console.error(err)
@@ -283,7 +265,6 @@ const createRoutes = (app, passport) => {
         })(req, res, next)
     })
     app.get('/foxtrot-api/validateToken', (req, res, next) => {
-        console.log(`/validateToken called`)
         passport.authenticate('jwt', (err, user, info) => {
             if (err || info !== undefined) {
                 console.error(info.message || err)
@@ -294,7 +275,6 @@ const createRoutes = (app, passport) => {
         })(req, res, next)
     })
     app.post('/foxtrot-api/registerPushNotifications', (req, res, next) => {
-        console.log('/registerPushNotifications called')
         passport.authenticate('jwt', async (err, user, info) => {
 
             if (err) {
@@ -306,7 +286,6 @@ const createRoutes = (app, passport) => {
                 res.status(403).send(info.message)
             } else {
                 try {
-                    console.log(`UserDevice token ${req.body.token}`)
                     // Cache token in memory and in Database
                     devices.set(user.id, req.body.token)
                     await pool.query('UPDATE users SET fcm_token = $1 WHERE id = $2', [req.body.token, user.id])

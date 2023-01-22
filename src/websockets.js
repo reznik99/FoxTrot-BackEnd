@@ -18,13 +18,13 @@ module.exports = {
 
             jwt.verify(token, jwtConfig.secret, (err, decoded) => {
                 if (err) {
-                    console.error("Websocket connection rejected, invalid JWT")
+                    console.error("WSS connection rejected, invalid JWT")
                     ws.close()
                 } else {
                     wsClients.set(decoded.id, ws)
                     ws.isAlive = true
                     ws.session = decoded
-                    console.log(`Websocket connection established for ${decoded.phone_no}`)
+                    console.log("WSS connection established for", decoded.phone_no)
                 }
             })
 
@@ -33,7 +33,7 @@ module.exports = {
             ws.on('message', (data) => {
                 jwt.verify(token, jwtConfig.secret, (err, decoded) => {
                     if (err) {
-                        console.error("Websocket connection rejected, invalid JWT")
+                        console.error("WSS connection rejected, invalid JWT")
                         ws.close()
                     }
                 })
@@ -44,7 +44,7 @@ module.exports = {
                         case "CALL_OFFER":
                         case "CALL_ICE_CANDIDATE":
                         case "CALL_ANSWER":
-                            console.log(`ws: (${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${data.toString()?.length} bytes)`)
+                            console.log(`WSS: (${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${data.toString()?.length} bytes)`)
                             if (!wsClients.has(parsedData.data.reciever_id)) {
                                 // TODO: Handle this case using push notifications
                                 return
@@ -57,11 +57,11 @@ module.exports = {
                     }
                 } catch (err) {
                     ws.send("Invalid JSON data")
-                    console.warn('Websocket message error: ', err.message || err)
+                    console.warn('WSS Websocket message error: ', err.message || err)
                 }
             })
             ws.on('close', () => {
-                console.log(`Closing websocket for ${ws.session?.phone_no}`)
+                console.log(`WSS Closing websocket for ${ws.session?.phone_no}`)
                 wsClients.delete(ws.session?.id)
                 ws.close()
             })
@@ -70,7 +70,7 @@ module.exports = {
         const interval = setInterval(() => {
             wss.clients.forEach((ws) => {
                 if (!ws.isAlive) {
-                    console.log(`${ws.session?.phone_no}'s websocket is dead. Terminating...`)
+                    console.log(`WSS ${ws.session?.phone_no}'s websocket is dead. Terminating...`)
                     wsClients.delete(ws.session?.id)
                     return ws.terminate()
                 }

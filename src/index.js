@@ -1,6 +1,7 @@
 
 const express = require('express'),
     passport = require('passport'),
+    morgan = require('morgan'),
     bodyParser = require('body-parser'),
     createRoutes = require('./routes'),
     { configureWebsocket } = require('./websockets'),
@@ -11,6 +12,7 @@ const app = express()
 
 //middleware
 app.use(bodyParser.json())
+app.use(morgan(':method :url :status :res[content-length] in :response-time ms'))
 app.use(passport.initialize())
 
 //authentication and routes
