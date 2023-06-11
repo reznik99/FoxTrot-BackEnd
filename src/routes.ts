@@ -1,30 +1,33 @@
-const jwt = require('jsonwebtoken')
-const jwtSecret = require('./config/jwtConfig')
-const pool = require('./config/dbConfig').pool
-const { wsClients } = require('./websockets')
 
-const admin = require("firebase-admin");
-const serviceAccount = require("./config/foxtrot-push-notifications-firebase-adminsdk.json");
+import { ServiceAccount, initializeApp, credential, messaging } from "firebase-admin";
+import { PassportStatic } from "passport";
+import { Express } from "express";
+import { sign } from 'jsonwebtoken';
 
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+import { secret } from 'config/jwtConfig';
+import { pool } from 'config/dbConfig';
+import { wsClients } from 'websockets';
+import serviceAccount from "config/foxtrot-push-notifications-firebase-adminsdk.json";
+
+initializeApp({
+    credential: credential.cert(serviceAccount as ServiceAccount),
 });
 
-const devices = new Map()
+export const devices = new Map()
 
-const createRoutes = (app, passport) => {
+export const CreateRoutes = (app: Express, passport: PassportStatic) => {
 
     app.post('/foxtrot-api/login', (req, res, next) => {
         passport.authenticate('login', (err, user, info) => {
             if (err) {
-                console.error("/login error: ", err)
+                console.error(err.message || err)
                 res.status(500).send()
             } else if (info !== undefined) {
-                console.error("/login error: ", info.message)
-                res.status(401).send(info.message)
+                console.error(info.message)
+                res.status(403).send(info.message)
             } else {
                 req.logIn(user, () => {
-                    const token = jwt.sign({ id: user.id, phone_no: user.phone_no }, jwtSecret.secret, {
+                    const token = sign({ id: user.id, phone_no: user.phone_no }, secret, {
                         expiresIn: 60 * 60,
                     })
                     res.status(200).send({
@@ -40,11 +43,10 @@ const createRoutes = (app, passport) => {
     app.post('/foxtrot-api/signup', (req, res, next) => {
         passport.authenticate('register', (err, user, info) => {
             if (err) {
-                console.error("/signup error: ", err)
+                console.error(err.message || err)
                 res.status(500).send()
-            }
-            if (info !== undefined) {
-                console.error("/signup error: ", info.message)
+            } else if (info !== undefined) {
+                console.error(info.message)
                 res.status(403).send(info.message)
             } else {
                 res.status(200).send({
@@ -59,10 +61,9 @@ const createRoutes = (app, passport) => {
     app.post('/foxtrot-api/savePublicKey', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                console.error(`error ${err}`)
+                console.error(err.message || err)
                 res.status(500).send()
-            }
-            if (info !== undefined) {
+            } else if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -86,10 +87,9 @@ const createRoutes = (app, passport) => {
     app.post('/foxtrot-api/sendMessage', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                console.error(`error ${err}`)
+                console.error(err.message || err)
                 res.status(500).send()
-            }
-            if (info !== undefined) {
+            } else if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -122,12 +122,12 @@ const createRoutes = (app, passport) => {
                         // Attempt to send the message to the user -> push-notification
                         console.log('Recipient offline! Sending Push notification')
                         const fcm_token = await getFCMToken(contact_id)
-                        if(!fcm_token) {
+                        if (!fcm_token) {
                             console.warn(`/sendMessage: No fcm_token found for ${contact_phone_no}`)
                             res.status(200).send({ message: 'Message Sent. Push Notification failed to send' })
                             return
                         }
-                        await admin.messaging().send({
+                        await messaging().send({
                             token: fcm_token,
                             notification: {
                                 title: `Message from ${user.phone_no}`,
@@ -148,23 +148,23 @@ const createRoutes = (app, passport) => {
     app.post('/foxtrot-api/addContact', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                console.error("/addContact error: ", err)
+                console.error(err.message || err)
                 res.status(500).send()
-            }else if (info !== undefined) {
+            } else if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
-                try{
+                try {
                     let data = req.body
                     await pool.query('INSERT INTO contacts VALUES ($1, $2)', [user.id, data.id])
                     const results = await pool.query('SELECT * FROM users WHERE id = $1', [data.id])
-                    if(!results.rows[0]) throw new Error("User not found")
+                    if (!results.rows[0]) throw new Error("User not found")
 
                     res.status(200).send({
                         message: 'Contact added',
                         ...results.rows[0]
                     })
-                } catch(err) {
+                } catch (err) {
                     console.error("/addContact: ", err)
                     res.status(500).send({
                         message: 'Failed to add contact'
@@ -174,33 +174,32 @@ const createRoutes = (app, passport) => {
         })(req, res, next)
     })
     app.delete('/foxtrot-api/removeContact', (req, res, next) => {
-        passport.authenticate('jwt', (err, user, info) => {
+        passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                console.error(`error ${err}`)
+                console.error(err.message || err)
                 res.status(500).send()
-            }
-
-            if (info !== undefined) {
+            } else if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
-                let data = req.body
-                pool.query('DELETE FROM contacts WHERE user_id = $1 AND contact_id = $2', [user.id, data.id], (err, result) => {
-                    if (err) {
-                        console.error(err.stack)
-                    } else {
-                        res.status(200).send({
-                            message: 'Contact removed'
-                        })
-                    }
-                })
+                try {
+                    let data = req.body
+                    await pool.query('DELETE FROM contacts WHERE user_id = $1 AND contact_id = $2', [user.id, data.id])
+                    res.status(200).send({
+                        message: 'Contact removed'
+                    })
+                }
+                catch (err: any) {
+                    console.error(err.message || err)
+                    res.status(500).send()
+                }
             }
         })(req, res, next)
     })
     app.get('/foxtrot-api/getContacts', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                console.error("/getContacts error: ", err)
+                console.error(err.message || err)
                 res.status(500).send()
             } else if (info !== undefined) {
                 console.error(info.message)
@@ -209,44 +208,44 @@ const createRoutes = (app, passport) => {
                 try {
                     const results = await pool.query('SELECT id, phone_no, public_key FROM users WHERE id IN (SELECT contact_id FROM contacts WHERE user_id = $1)', [user.id])
                     res.status(200).send(results.rows)
-                } catch (err) {
-                    console.error("/getContacts error: ", err)
+                } catch (err: any) {
+                    console.error(err.message || err)
                     res.status(500).send()
                 }
             }
         })(req, res, next)
     })
     app.get('/foxtrot-api/searchUsers/:prefix', (req, res, next) => {
-        passport.authenticate('jwt', (err, user, info) => {
-            if (err) console.error(`error ${err}`)
-
-            if (info !== undefined) {
+        passport.authenticate('jwt', async (err, user, info) => {
+            if (err) {
+                console.error(err.message || err)
+                res.status(500).send()
+            } else if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
-                const prefix = req.params.prefix
-                pool.query("SELECT id, phone_no, public_key FROM users WHERE phone_no LIKE $1 AND phone_no != $2 LIMIT 10", [prefix + '%', user.phone_no])
-                    .then(result => {
-                        res.status(200).send(result.rows)
-                    })
-                    .catch(err => {
-                        res.status(500)
-                        console.error(err.stack)
-                    })
+                try {
+                    const prefix = req.params.prefix
+                    const result = await pool.query("SELECT id, phone_no, public_key FROM users WHERE phone_no LIKE $1 AND phone_no != $2 LIMIT 10", [prefix + '%', user.phone_no])
+                    res.status(200).send(result.rows)
+                } catch (err: any) {
+                    console.error(err.message || err)
+                    res.status(500).send()
+                }
             }
         })(req, res, next)
     })
     app.get('/foxtrot-api/getConversations', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                console.error("Error: ", err)
-                res.status(500).send(err.message || err)
+                console.error(err.message || err)
+                res.status(500).send()
             } else if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
                 try {
-                    const since = new Date(parseInt(req.query.since) || 0)
+                    const since = new Date(parseInt(req.query.since as string || '0'))
                     const result = await pool.query(`
                         SELECT m.id, message, sent_at, seen, u1.phone_no AS reciever, u1.id AS reciever_id, u2.phone_no AS sender, u2.id AS sender_id 
                             FROM messages AS m 
@@ -255,7 +254,7 @@ const createRoutes = (app, passport) => {
                         WHERE (user_id = $1 OR contact_id = $1) AND sent_at > $2::timestamptz
                         ORDER BY sent_at DESC 
                         LIMIT 1000`, [user.id, since])
-                    
+
                     res.status(200).send(result.rows)
                 } catch (err) {
                     console.error(err)
@@ -276,12 +275,10 @@ const createRoutes = (app, passport) => {
     })
     app.post('/foxtrot-api/registerPushNotifications', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
-
             if (err) {
-                console.error(`error ${err}`)
+                console.error(err.message || err)
                 res.status(500).send()
-            }
-            if (info !== undefined) {
+            } else if (info !== undefined) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -300,12 +297,10 @@ const createRoutes = (app, passport) => {
 }
 
 // Fetches the fcm_token for push notifications for the specified user and caches it
-const getFCMToken = async (user_id) => {
+const getFCMToken = async (user_id: string) => {
     if (devices.has(user_id)) return devices.get(user_id)
 
     const res = await pool.query('SELECT fcm_token FROM users WHERE id = $1', [user_id])
     devices.set(user_id, res.rows[0].fcm_token)
     return res.rows[0].fcm_token
 }
-
-module.exports = createRoutes
