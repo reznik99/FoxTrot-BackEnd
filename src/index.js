@@ -10,16 +10,16 @@ const express = require('express'),
 const PORT = process.env.PORT || 1234
 const app = express()
 
-//middleware
-app.use(bodyParser.json())
+// Middleware & Logging
+app.use(bodyParser.json({limit: '10mb'}))
 app.use(morgan(':method :url :status :res[content-length] in :response-time ms'))
 app.use(passport.initialize())
 
-//authentication and routes
+// Authentication & Routes
 auth(passport)
 createRoutes(app, passport)
 
-//listen
+// Start & Listen
 const expressServer = app.listen(PORT, () => {
     console.info(`FoxTrot Server mode:${process.env.NODE_ENV} listening on ${PORT}`)
 })
