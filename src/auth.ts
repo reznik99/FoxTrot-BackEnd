@@ -1,23 +1,16 @@
 
-const LocalStrategy = require('passport-local').Strategy;
-const JWTstrategy = require('passport-jwt').Strategy;
-const ExtractJWT = require('passport-jwt').ExtractJwt;
+import { Strategy as LocalStrategy } from 'passport-local';
+import { Strategy as JWTstrategy, ExtractJwt } from 'passport-jwt';
+import { PassportStatic } from 'passport';
+import { hash, compare } from 'bcryptjs';
 
-const bcrypt = require('bcryptjs');
-const jwtConfig = require('./config/jwtConfig');
-const pool = require('./config/dbConfig').pool;
+import { secret } from 'config/jwtConfig';
+import { pool } from 'config/dbConfig';
 
 const BCRYPT_SALT_ROUNDS = 12;
 
-module.exports = (passport) => {
-    passport.serializeUser((user, done) => done(null, user.id));
-
-    passport.deserializeUser((id, done) => {
-        User.findById(id, (err, user) => {
-            done(err, user);
-        });
-    });
-
+export const InitAuth = (passport: PassportStatic) => {
+    passport.serializeUser((user: any, done) => done(null, user.id));
 
     passport.use('register', new LocalStrategy({
         usernameField: 'phone_no',
@@ -30,8 +23,8 @@ module.exports = (passport) => {
                 return done(null, false, { message: 'Username already taken!' })
 
             // Hash password and create new user
-            const hash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS)
-            const res = await pool.query('INSERT INTO users(phone_no, password) VALUES ($1, $2) RETURNING *', [phone_no, hash])
+            const hashedPw = await hash(password, BCRYPT_SALT_ROUNDS)
+            const res = await pool.query('INSERT INTO users(phone_no, password) VALUES ($1, $2) RETURNING *', [phone_no, hashedPw])
 
             return done(null, res.rows[0]);
 
@@ -53,7 +46,7 @@ module.exports = (passport) => {
 
             // Compare hashes
             const user = results.rows[0];
-            const equal = await bcrypt.compare(password, user.password)
+            const equal = await compare(password, user.password)
             if (!equal) return done(null, false, { message: 'Invalid username and/or password' });
 
             return done(null, user);
@@ -64,8 +57,8 @@ module.exports = (passport) => {
     }));
 
     const opts = {
-        jwtFromRequest: ExtractJWT.fromAuthHeaderWithScheme('JWT'),
-        secretOrKey: jwtConfig.secret,
+        jwtFromRequest: ExtractJwt.fromAuthHeaderWithScheme('JWT'),
+        secretOrKey: secret,
     };
 
     passport.use('jwt', new JWTstrategy(opts, async (jwt_payload, done) => {
