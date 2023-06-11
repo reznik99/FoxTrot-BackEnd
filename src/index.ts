@@ -4,9 +4,9 @@ import passport from 'passport'
 import morgan from 'morgan'
 import bodyParser from 'body-parser'
 
-import { InitWebsocketServer } from "websockets"
-import { CreateRoutes } from "routes"
-import { InitAuth } from "auth"
+import { InitWebsocketServer } from "./sockets"
+import { CreateRoutes } from "./routes"
+import { InitAuth } from "./auth"
 
 const PORT = parseInt(process.env.PORT || "1234")
 const app = express()

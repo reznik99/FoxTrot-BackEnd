@@ -4,8 +4,8 @@ import { Strategy as JWTstrategy, ExtractJwt } from 'passport-jwt';
 import { PassportStatic } from 'passport';
 import { hash, compare } from 'bcryptjs';
 
-import { secret } from 'config/jwtConfig';
-import { pool } from 'config/dbConfig';
+import { jwtSecret } from './config/jwtConfig';
+import { pool } from './config/dbConfig';
 
 const BCRYPT_SALT_ROUNDS = 12;
 
@@ -58,7 +58,7 @@ export const InitAuth = (passport: PassportStatic) => {
 
     const opts = {
         jwtFromRequest: ExtractJwt.fromAuthHeaderWithScheme('JWT'),
-        secretOrKey: secret,
+        secretOrKey: jwtSecret,
     };
 
     passport.use('jwt', new JWTstrategy(opts, async (jwt_payload, done) => {

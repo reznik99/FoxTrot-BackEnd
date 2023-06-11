@@ -1,16 +1,16 @@
 
-import { ServiceAccount, initializeApp, credential, messaging } from "firebase-admin";
+import firebase from "firebase-admin";
 import { PassportStatic } from "passport";
 import { Express } from "express";
 import { sign } from 'jsonwebtoken';
 
-import { secret } from 'config/jwtConfig';
-import { pool } from 'config/dbConfig';
-import { wsClients } from 'websockets';
-import serviceAccount from "config/foxtrot-push-notifications-firebase-adminsdk.json";
+import { jwtSecret } from './config/jwtConfig';
+import { pool } from './config/dbConfig';
+import { wsClients } from './sockets';
+import serviceAccount from "./config/foxtrot-push-notifications-firebase-adminsdk.json";
 
-initializeApp({
-    credential: credential.cert(serviceAccount as ServiceAccount),
+firebase.initializeApp({
+    credential: firebase.credential.cert(serviceAccount as firebase.ServiceAccount),
 });
 
 export const devices = new Map()
@@ -27,7 +27,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(403).send(info.message)
             } else {
                 req.logIn(user, () => {
-                    const token = sign({ id: user.id, phone_no: user.phone_no }, secret, {
+                    const token = sign({ id: user.id, phone_no: user.phone_no }, jwtSecret, {
                         expiresIn: 60 * 60,
                     })
                     res.status(200).send({
@@ -127,7 +127,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                             res.status(200).send({ message: 'Message Sent. Push Notification failed to send' })
                             return
                         }
-                        await messaging().send({
+                        await firebase.messaging().send({
                             token: fcm_token,
                             notification: {
                                 title: `Message from ${user.phone_no}`,
