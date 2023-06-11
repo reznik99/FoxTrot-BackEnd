@@ -3,7 +3,7 @@ import jwt, { JwtPayload } from 'jsonwebtoken'
 import wslib from 'ws'
 import url from 'url'
 
-import jwtConfig from 'config/jwtConfig'
+import { jwtSecret } from './config/jwtConfig'
 
 interface WebSocketServer extends wslib.Server {
     clients: Set<WebSocket>
@@ -25,7 +25,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
         const token = url.parse(req.url as string, true).query.token as string
 
         try {
-            const decoded = jwt.verify(token, jwtConfig.secret) as JwtPayload
+            const decoded = jwt.verify(token, jwtSecret) as JwtPayload
             wsClients.set(decoded.id, ws)
             ws.isAlive = true
             ws.session = decoded
