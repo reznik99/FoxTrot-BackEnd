@@ -22,7 +22,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             if (err) {
                 console.error(err.message || err)
                 res.status(500).send()
-            } else if (info !== undefined) {
+            } else if (info) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -45,7 +45,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             if (err) {
                 console.error(err.message || err)
                 res.status(500).send()
-            } else if (info !== undefined) {
+            } else if (info) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -63,7 +63,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             if (err) {
                 console.error(err.message || err)
                 res.status(500).send()
-            } else if (info !== undefined) {
+            } else if (info) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -77,8 +77,8 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         console.warn(`User ${user.phone_no} trying to overwrite account\'s public key. Rejected`)
                         res.status(403).send()
                     }
-                } catch (error) {
-                    console.error(error)
+                } catch (err: any) {
+                    console.error(err.message || err)
                     res.status(500).send()
                 }
             }
@@ -89,7 +89,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             if (err) {
                 console.error(err.message || err)
                 res.status(500).send()
-            } else if (info !== undefined) {
+            } else if (info) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -138,8 +138,8 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                     }
 
                     res.status(200).send({ message: 'Message Sent' })
-                } catch (err) {
-                    console.error('Error:', err)
+                } catch (err: any) {
+                    console.error(err.message || err)
                     res.status(500).send()
                 }
             }
@@ -150,7 +150,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             if (err) {
                 console.error(err.message || err)
                 res.status(500).send()
-            } else if (info !== undefined) {
+            } else if (info) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -164,8 +164,8 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         message: 'Contact added',
                         ...results.rows[0]
                     })
-                } catch (err) {
-                    console.error("/addContact: ", err)
+                } catch (err: any) {
+                    console.error(err.message || err)
                     res.status(500).send({
                         message: 'Failed to add contact'
                     })
@@ -178,7 +178,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             if (err) {
                 console.error(err.message || err)
                 res.status(500).send()
-            } else if (info !== undefined) {
+            } else if (info) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -201,7 +201,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             if (err) {
                 console.error(err.message || err)
                 res.status(500).send()
-            } else if (info !== undefined) {
+            } else if (info) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -220,7 +220,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             if (err) {
                 console.error(err.message || err)
                 res.status(500).send()
-            } else if (info !== undefined) {
+            } else if (info) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -240,7 +240,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             if (err) {
                 console.error(err.message || err)
                 res.status(500).send()
-            } else if (info !== undefined) {
+            } else if (info) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -256,8 +256,8 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         LIMIT 1000`, [user.id, since])
 
                     res.status(200).send(result.rows)
-                } catch (err) {
-                    console.error(err)
+                } catch (err: any) {
+                    console.error(err.message || err)
                     res.status(500).send()
                 }
             }
@@ -265,7 +265,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     })
     app.get('/foxtrot-api/validateToken', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
-            if (err || info !== undefined) {
+            if (err || info) {
                 console.error(info.message || err)
                 res.status(401).send({ valid: false }) // token expired!
             } else {
@@ -278,7 +278,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             if (err) {
                 console.error(err.message || err)
                 res.status(500).send()
-            } else if (info !== undefined) {
+            } else if (info) {
                 console.error(info.message)
                 res.status(403).send(info.message)
             } else {
@@ -287,8 +287,8 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                     devices.set(user.id, req.body.token)
                     await pool.query('UPDATE users SET fcm_token = $1 WHERE id = $2', [req.body.token, user.id])
                     res.status(200).send('Registered')
-                } catch (error) {
-                    console.error(error)
+                } catch (err: any) {
+                    console.error(err.message || err)
                     res.status(500).send()
                 }
             }
