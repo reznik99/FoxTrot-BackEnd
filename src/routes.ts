@@ -132,7 +132,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                             notification: {
                                 title: `Message from ${user.phone_no}`,
                                 body: message.substring(0, 200),
-                                imageUrl: `https://robohash.org/${user.id}`,
+                                imageUrl: `https://robohash.org/${user.id}?size=150x150`,
                             },
                         });
                     }
@@ -226,7 +226,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             } else {
                 try {
                     const prefix = req.params.prefix
-                    const result = await pool.query("SELECT id, phone_no, public_key FROM users WHERE phone_no LIKE $1 AND phone_no != $2 LIMIT 10", [prefix + '%', user.phone_no])
+                    const result = await pool.query("SELECT id, phone_no, public_key FROM users WHERE phone_no ILIKE $1 AND phone_no != $2 LIMIT 10", [prefix + '%', user.phone_no])
                     res.status(200).send(result.rows)
                 } catch (err: any) {
                     console.error(err.message || err)
