@@ -13,7 +13,7 @@ const app = express()
 
 // Middleware & Logging
 app.use(bodyParser.json({ limit: '10mb' }))
-app.use(morgan(':method :url :status :res[content-length]bytes in :response-time ms'))
+app.use(morgan('\x1b[33m:method\x1b[0m \x1b[36m:url\x1b[0m :status :res[content-length]bytes in :response-time ms'))
 app.use(passport.initialize())
 
 // Authentication & Routes
