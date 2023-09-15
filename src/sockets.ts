@@ -14,7 +14,7 @@ interface WebSocket extends wslib {
 }
 
 const header = "\x1b[33mWSS:\x1b[0m"
-const logHeader = () => `${new Date()}\x1b[33mWSS:\x1b[0m` 
+const logHeader = () => `${new Date().toUTCString()}\x1b[33mWSS:\x1b[0m` 
 const socketPingMs = 30000
 export const wsClients = new Map()
 
