@@ -157,7 +157,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 try {
                     let data = req.body
                     await pool.query('INSERT INTO contacts VALUES ($1, $2)', [user.id, data.id])
-                    const results = await pool.query('SELECT * FROM users WHERE id = $1', [data.id])
+                    const results = await pool.query('SELECT id, phone_no, public_key FROM users WHERE id = $1', [data.id])
                     if (!results.rows[0]) throw new Error("User not found")
 
                     res.status(200).send({
