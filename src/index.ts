@@ -7,6 +7,7 @@ import bodyParser from 'body-parser'
 import { InitWebsocketServer } from "./sockets"
 import { CreateRoutes } from "./routes"
 import { InitAuth } from "./auth"
+import { log_info } from './log'
 
 const PORT = parseInt(process.env.PORT || "1234")
 const app = express()
@@ -22,7 +23,7 @@ CreateRoutes(app, passport)
 
 // Start & Listen
 const expressServer = app.listen(PORT, () => {
-    console.info(`FoxTrot Server mode:${process.env.NODE_ENV} listening on ${PORT}`)
+    log_info(`FoxTrot Server mode:${process.env.NODE_ENV} listening on ${PORT}`)
 })
 
 InitWebsocketServer(expressServer)

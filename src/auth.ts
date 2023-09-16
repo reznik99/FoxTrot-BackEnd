@@ -6,6 +6,7 @@ import { hash, compare } from 'bcryptjs';
 
 import { jwtSecret } from './config/jwtConfig';
 import { pool } from './config/dbConfig';
+import { log_error } from './log';
 
 const BCRYPT_SALT_ROUNDS = 12;
 
@@ -29,7 +30,7 @@ export const InitAuth = (passport: PassportStatic) => {
             return done(null, res.rows[0]);
 
         } catch (err) {
-            console.error("Signup err: ", err)
+            log_error(`Signup err: ${err}`)
             return done(null, false, { message: 'Error occoured during registration. Please try again later.' })
         }
     }));
@@ -51,7 +52,7 @@ export const InitAuth = (passport: PassportStatic) => {
 
             return done(null, user);
         } catch (err) {
-            console.error("Login err: ", err)
+            log_error(`Login err: ${err}`)
             return done(null, false, { message: 'Error during login process. Try again later' })
         }
     }));
@@ -70,7 +71,7 @@ export const InitAuth = (passport: PassportStatic) => {
 
             return done(null, results.rows[0]);
         } catch (err) {
-            console.error("JWT Verify err: ", err)
+            log_error(`JWT Verify err: ${err}`)
             return done(null, false, { message: 'Error during Token verification process. Try again later' })
         }
     }));

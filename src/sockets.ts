@@ -4,6 +4,7 @@ import wslib from 'ws'
 import url from 'url'
 
 import { jwtSecret } from './config/jwtConfig'
+import { log_error, log_info, log_warning } from './log'
 
 interface WebSocketServer extends wslib.Server {
     clients: Set<WebSocket>
@@ -13,8 +14,7 @@ interface WebSocket extends wslib {
     session: JwtPayload;
 }
 
-const header = "\x1b[33mWSS:\x1b[0m"
-const logHeader = () => `${new Date().toUTCString()}\x1b[33mWSS:\x1b[0m` 
+const logHeader = '\x1b[33mWSS:\x1b[0m'
 const socketPingMs = 30000
 export const wsClients = new Map()
 
@@ -30,9 +30,9 @@ export const InitWebsocketServer = (expressServer: Server) => {
             wsClients.set(decoded.id, ws)
             ws.isAlive = true
             ws.session = decoded
-            console.log(`${logHeader()} connection established for`, decoded.phone_no)
+            log_info(`${logHeader} connection established for ${decoded.phone_no}`)
         } catch (err) {
-            console.error(`${logHeader()} connection rejected, invalid JWT`)
+            log_error(`${logHeader} connection rejected, invalid JWT`)
             ws.close()
         }
 
@@ -45,7 +45,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
                     case "CALL_OFFER":
                     case "CALL_ICE_CANDIDATE":
                     case "CALL_ANSWER":
-                        console.log(`${logHeader()} (${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${data.toString()?.length} bytes)`)
+                        log_info(`${logHeader} (${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${data.toString()?.length} bytes)`)
                         if (!wsClients.has(parsedData.data.reciever_id)) {
                             // TODO: Handle this case using push notifications
                             return
@@ -58,14 +58,14 @@ export const InitWebsocketServer = (expressServer: Server) => {
                 }
             } catch (err: any) {
                 ws.send("Error receiving data", err.message || err)
-                console.warn(`${logHeader()} Error receiving data: `, err.message || err)
+                log_warning(`${logHeader} Error receiving data: ${err.message || err}`)
             }
         })
 
         ws.on('pong', () => { ws.isAlive = true })
 
         ws.on('close', () => {
-            console.log(`${logHeader()} Closing websocket for ${ws.session?.phone_no}`)
+            log_info(`${logHeader} Closing websocket for ${ws.session?.phone_no}`)
             wsClients.delete(ws.session?.id)
             ws.close()
         })
@@ -74,7 +74,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
     setInterval(() => {
         wss.clients.forEach((ws: WebSocket) => {
             if (!ws.isAlive) {
-                console.log(`${logHeader()} ${ws.session?.phone_no}'s websocket is dead. Terminating...`)
+                log_info(`${logHeader} ${ws.session?.phone_no}'s websocket is dead. Terminating...`)
                 wsClients.delete(ws.session?.id)
                 return ws.terminate()
             }
