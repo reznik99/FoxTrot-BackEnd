@@ -4,7 +4,7 @@ import wslib from 'ws'
 import url from 'url'
 
 import { jwtSecret } from './config/jwtConfig'
-import { log_error, log_info, log_warning } from './log'
+import { ResetColor, YellowColor, log_error, log_info, log_warning } from './log'
 
 interface WebSocketServer extends wslib.Server {
     clients: Set<WebSocket>
@@ -14,7 +14,7 @@ interface WebSocket extends wslib {
     session: JwtPayload;
 }
 
-const logHeader = '\x1b[33mWSS:\x1b[0m'
+const logHeader = `${YellowColor}WSS${ResetColor}`
 const socketPingMs = 30000
 export const wsClients = new Map()
 
