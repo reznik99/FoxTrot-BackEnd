@@ -25,7 +25,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(500).send()
             } else if (info) {
                 log_error(info.message)
-                res.status(403).send(info.message)
+                res.status(403).send(info)
             } else {
                 req.logIn(user, () => {
                     const token = sign({ id: user.id, phone_no: user.phone_no }, jwtSecret, {
@@ -48,7 +48,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(500).send()
             } else if (info) {
                 log_error(info.message)
-                res.status(403).send(info.message)
+                res.status(403).send(info)
             } else {
                 res.status(200).send({
                     user_data: { id: user.id, phone_no: user.phone_no, public_key: user.public_key },
@@ -66,7 +66,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(500).send()
             } else if (info) {
                 log_error(info.message)
-                res.status(403).send(info.message)
+                res.status(403).send(info)
             } else {
                 try {
                     const { rows } = await pool.query('SELECT public_key from users WHERE id = $1', [user.id])
@@ -92,7 +92,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(500).send()
             } else if (info) {
                 log_error(info.message)
-                res.status(403).send(info.message)
+                res.status(403).send(info)
             } else {
                 let { message, contact_id, contact_phone_no } = req.body
 
@@ -124,7 +124,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         log_info('Recipient offline! Sending Push notification')
                         const fcm_token = await getFCMToken(contact_id)
                         if (!fcm_token) {
-                            log_warning(`/sendMessage: No fcm_token found for ${contact_phone_no}`)
+                            log_warning('/sendMessage: No fcm_token found for', contact_phone_no)
                             res.status(200).send({ message: 'Message Sent. Push Notification failed to send' })
                             return
                         }
@@ -153,7 +153,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(500).send()
             } else if (info) {
                 log_error(info.message)
-                res.status(403).send(info.message)
+                res.status(403).send(info)
             } else {
                 try {
                     let data = req.body
@@ -181,7 +181,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(500).send()
             } else if (info) {
                 log_error(info.message)
-                res.status(403).send(info.message)
+                res.status(403).send(info)
             } else {
                 try {
                     let data = req.body
@@ -204,7 +204,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(500).send()
             } else if (info) {
                 log_error(info.message)
-                res.status(403).send(info.message)
+                res.status(403).send(info)
             } else {
                 try {
                     const results = await pool.query('SELECT id, phone_no, public_key FROM users WHERE id IN (SELECT contact_id FROM contacts WHERE user_id = $1)', [user.id])
@@ -223,7 +223,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(500).send()
             } else if (info) {
                 log_error(info.message)
-                res.status(403).send(info.message)
+                res.status(403).send(info)
             } else {
                 try {
                     const prefix = req.params.prefix
@@ -243,7 +243,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(500).send()
             } else if (info) {
                 log_error(info.message)
-                res.status(403).send(info.message)
+                res.status(403).send(info)
             } else {
                 try {
                     const since = new Date(parseInt(req.query.since as string || '0'))
@@ -281,7 +281,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(500).send()
             } else if (info) {
                 log_error(info.message)
-                res.status(403).send(info.message)
+                res.status(403).send(info)
             } else {
                 try {
                     // Cache token in memory and in Database

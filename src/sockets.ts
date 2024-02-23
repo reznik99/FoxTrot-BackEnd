@@ -30,9 +30,9 @@ export const InitWebsocketServer = (expressServer: Server) => {
             wsClients.set(decoded.id, ws)
             ws.isAlive = true
             ws.session = decoded
-            log_info(`${logHeader} connection established for ${decoded.phone_no}`)
+            log_info(logHeader, 'connection established for', decoded.phone_no)
         } catch (err) {
-            log_error(`${logHeader} connection rejected, invalid JWT`)
+            log_error(logHeader, 'connection rejected, invalid JWT')
             ws.close()
         }
 
@@ -45,7 +45,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
                     case "CALL_OFFER":
                     case "CALL_ICE_CANDIDATE":
                     case "CALL_ANSWER":
-                        log_info(`${logHeader} (${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${data.toString()?.length} bytes)`)
+                        log_info(logHeader, `(${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${data.toString()?.length} bytes)`)
                         if (!wsClients.has(parsedData.data.reciever_id)) {
                             // TODO: Handle this case using push notifications
                             return
@@ -58,14 +58,14 @@ export const InitWebsocketServer = (expressServer: Server) => {
                 }
             } catch (err: any) {
                 ws.send("Error receiving data", err.message || err)
-                log_warning(`${logHeader} Error receiving data: ${err.message || err}`)
+                log_warning(logHeader, 'Error receiving data:', err.message || err)
             }
         })
 
         ws.on('pong', () => { ws.isAlive = true })
 
         ws.on('close', () => {
-            log_info(`${logHeader} Closing websocket for ${ws.session?.phone_no}`)
+            log_info(logHeader, 'Closing websocket for', ws.session?.phone_no)
             wsClients.delete(ws.session?.id)
             ws.close()
         })
@@ -74,7 +74,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
     setInterval(() => {
         wss.clients.forEach((ws: WebSocket) => {
             if (!ws.isAlive) {
-                log_info(`${logHeader} ${ws.session?.phone_no}'s websocket is dead. Terminating...`)
+                log_info(logHeader, `${ws.session?.phone_no}'s websocket is dead. Terminating...`)
                 wsClients.delete(ws.session?.id)
                 return ws.terminate()
             }
