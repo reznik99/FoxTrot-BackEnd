@@ -30,7 +30,7 @@ export const InitAuth = (passport: PassportStatic) => {
             return done(null, res.rows[0]);
 
         } catch (err: any) {
-            log_error('Signup err:', err?.errors?.[0] || err)
+            log_error('Signup err:', err?.errors?.[0]?.message || err)
             return done(null, false, { message: 'Error occoured during registration. Please try again later.' })
         }
     }));
@@ -52,7 +52,7 @@ export const InitAuth = (passport: PassportStatic) => {
 
             return done(null, user);
         } catch (err: any) {
-            log_error('Login err:', err?.errors?.[0] || err)
+            log_error('Login err:', err?.errors?.[0]?.message || err)
             return done(null, false, { message: 'Error during login process. Try again later' })
         }
     }));
@@ -71,7 +71,7 @@ export const InitAuth = (passport: PassportStatic) => {
 
             return done(null, results.rows[0]);
         } catch (err: any) {
-            log_error('JWT Verify err:', err?.errors?.[0] || err)
+            log_error('JWT Verify err:', err?.errors?.[0]?.message || err)
             return done(null, false, { message: 'Error during Token verification process. Try again later' })
         }
     }));

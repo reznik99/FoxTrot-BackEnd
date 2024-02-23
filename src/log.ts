@@ -8,17 +8,17 @@ export const WhiteColor = '\x1b[0m';
 export const ResetColor = '\x1b[0m';
 
 export function log_error(message: string, ...optionalParams: any[]) {
-    console.error(`${RedColor}[ERRO] ${new Date().toUTCString()}${ResetColor}`, message, optionalParams)
+    console.error(`${RedColor}[ERRO] ${new Date().toUTCString()}${ResetColor}`, message, ...optionalParams)
 }
 
 export function log_warning(message: string, ...optionalParams: any[]) {
-    console.warn(`${YellowColor}[WARN] ${new Date().toUTCString()}${ResetColor}`, message, optionalParams)
+    console.warn(`${YellowColor}[WARN] ${new Date().toUTCString()}${ResetColor}`, message, ...optionalParams)
 }
 
 export function log_info(message: string, ...optionalParams: any[]) {
-    console.info(`${CyanColor}[INFO] ${new Date().toUTCString()}${ResetColor}`, message, optionalParams)
+    console.info(`${CyanColor}[INFO] ${new Date().toUTCString()}${ResetColor}`, message, ...optionalParams)
 }
 
 export function log_debug(message: string, ...optionalParams: any[]) {
-    console.debug(`${CyanColor}[INFO] ${new Date().toUTCString()}${ResetColor}`, message, optionalParams)
+    console.debug(`${CyanColor}[INFO] ${new Date().toUTCString()}${ResetColor}`, message, ...optionalParams)
 }
