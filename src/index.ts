@@ -23,7 +23,7 @@ const app = express()
 
 // Middleware & Logging
 app.use(bodyParser.json({ limit: '10mb' }))
-app.use(morgan(`${CyanColor}[INFO] :date ${ResetColor}${YellowColor}:method${ResetColor} ${CyanColor}:url${ResetColor} :status :res[content-length]bytes in :response-time ms`))
+app.use(morgan(`${CyanColor}[INFO] :date ${ResetColor}${YellowColor}:method${ResetColor} ${CyanColor}:url${ResetColor} :status :res[content-length]bytes in :response-time ms`, { skip: (req, res) => req.path === '/foxtrot-api/metrics' }))
 app.use(passport.initialize())
 app.use(metricsMiddleware)
 
