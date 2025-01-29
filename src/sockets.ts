@@ -3,8 +3,9 @@ import jwt, { JwtPayload } from 'jsonwebtoken'
 import wslib from 'ws'
 import url from 'url'
 
-import { jwtSecret } from './config/jwtConfig'
-import { ResetColor, YellowColor, log_error, log_info, log_warning } from './log'
+import { ResetColor, YellowColor, log_error, log_info, log_warning } from './middlware/log'
+import { callsCounter, websocketCounter } from './middlware/metrics'
+import { JWT_SECRET } from './config/envConfig'
 
 interface WebSocketServer extends wslib.Server {
     clients: Set<WebSocket>
@@ -23,10 +24,11 @@ export const InitWebsocketServer = (expressServer: Server) => {
     const wss = new wslib.Server({ server: expressServer, path: '/foxtrot-api/ws' }) as WebSocketServer
 
     wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+        websocketCounter.inc()
         const token = url.parse(req.url as string, true).query.token as string
 
         try {
-            const decoded = jwt.verify(token, jwtSecret) as JwtPayload
+            const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload
             wsClients.set(decoded.id, ws)
             ws.isAlive = true
             ws.session = decoded
@@ -46,6 +48,9 @@ export const InitWebsocketServer = (expressServer: Server) => {
                     case "CALL_ICE_CANDIDATE":
                     case "CALL_ANSWER":
                         log_info(logHeader, `(${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${data.toString()?.length} bytes)`)
+                        if (parsedData.cmd === "CALL_OFFER") {
+                            callsCounter.inc()
+                        }
                         if (!wsClients.has(parsedData.data.reciever_id)) {
                             // TODO: Handle this case using push notifications
                             return
@@ -67,6 +72,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
         ws.on('close', () => {
             log_info(logHeader, 'Closing websocket for', ws.session?.phone_no)
             wsClients.delete(ws.session?.id)
+            websocketCounter.dec()
             ws.close()
         })
     })
@@ -76,6 +82,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
             if (!ws.isAlive) {
                 log_info(logHeader, `${ws.session?.phone_no}'s websocket is dead. Terminating...`)
                 wsClients.delete(ws.session?.id)
+                websocketCounter.dec()
                 return ws.terminate()
             }
             ws.isAlive = false

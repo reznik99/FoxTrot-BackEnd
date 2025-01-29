@@ -3,18 +3,20 @@ import firebase from "firebase-admin";
 import { PassportStatic } from "passport";
 import { Express } from "express";
 import { sign } from 'jsonwebtoken';
+import expressBasicAuth from "express-basic-auth";
+import promClient from 'prom-client';
 
-import { jwtSecret } from './config/jwtConfig';
-import { pool } from './config/dbConfig';
-import { wsClients } from './sockets';
 import serviceAccount from "./config/foxtrot-push-notifications-firebase-adminsdk.json";
-import { log_error, log_info, log_warning } from "./log";
+import { pool, JWT_SECRET, METRICS_PASSWORD } from './config/envConfig';
+import { log_error, log_info, log_warning } from "./middlware/log";
+import { messagesCounter } from "./middlware/metrics";
+import { wsClients } from './sockets';
 
 firebase.initializeApp({
     credential: firebase.credential.cert(serviceAccount as firebase.ServiceAccount),
 });
 
-export const devices = new Map()
+export const devices = new Map<string, string>()
 
 export const CreateRoutes = (app: Express, passport: PassportStatic) => {
 
@@ -28,7 +30,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(403).send(info)
             } else {
                 req.logIn(user, () => {
-                    const token = sign({ id: user.id, phone_no: user.phone_no }, jwtSecret, {
+                    const token = sign({ id: user.id, phone_no: user.phone_no }, JWT_SECRET, {
                         expiresIn: 60 * 60,
                     })
                     res.status(200).send({
@@ -137,7 +139,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                             },
                         });
                     }
-
+                    messagesCounter.inc()
                     res.status(200).send({ message: 'Message Sent' })
                 } catch (err: any) {
                     log_error(err.message || err)
@@ -295,13 +297,24 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             }
         })(req, res, next)
     })
+
+    // Metrics Route
+    app.get('/foxtrot-api/metrics', expressBasicAuth({ users: { "admin": METRICS_PASSWORD }, challenge: true }), async (req, res, next) => {
+        try {
+            res.status(200).send(await promClient.register.metrics())
+        } catch (err) {
+            log_error("Metric endpoint error:", err)
+            res.status(401).send({ message: "HTTP Basic Auth required" })
+        }
+    })
 }
 
-// Fetches the fcm_token for push notifications for the specified user and caches it
+// Fetches the fcm_token for push notifications for the specified user from the database and caches it
 const getFCMToken = async (user_id: string) => {
     if (devices.has(user_id)) return devices.get(user_id)
 
     const res = await pool.query('SELECT fcm_token FROM users WHERE id = $1', [user_id])
-    devices.set(user_id, res.rows[0].fcm_token)
-    return res.rows[0].fcm_token
+    const fcmToken = res.rows[0].fcm_token
+    devices.set(user_id, fcmToken)
+    return fcmToken
 }

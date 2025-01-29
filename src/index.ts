@@ -6,18 +6,29 @@ import bodyParser from 'body-parser'
 
 import { InitWebsocketServer } from "./sockets"
 import { CreateRoutes } from "./routes"
-import { InitAuth } from "./auth"
-import { CyanColor, ResetColor, YellowColor, log_info } from './log'
+import { InitAuth } from "./middlware/auth"
+import { CyanColor, ResetColor, YellowColor, log_error, log_info } from './middlware/log'
+import { InitMetrics, metricsMiddleware } from './middlware/metrics'
+import { PORT, JWT_SECRET, METRICS_PASSWORD } from './config/envConfig'
 
-const PORT = parseInt(process.env.PORT || "1234")
+if (JWT_SECRET === "") {
+    log_error("JWT Secret not found in env but is required!")
+    process.exit(1)
+} else if (METRICS_PASSWORD === "") {
+    log_error("Password for /metrics not found in env but is required!")
+    process.exit(1)
+}
+
 const app = express()
 
 // Middleware & Logging
 app.use(bodyParser.json({ limit: '10mb' }))
 app.use(morgan(`${CyanColor}[INFO] :date ${ResetColor}${YellowColor}:method${ResetColor} ${CyanColor}:url${ResetColor} :status :res[content-length]bytes in :response-time ms`))
 app.use(passport.initialize())
+app.use(metricsMiddleware)
 
-// Authentication & Routes
+// Register metrics, authentication and routes
+InitMetrics()
 InitAuth(passport)
 CreateRoutes(app, passport)
 
