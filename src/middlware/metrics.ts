@@ -3,11 +3,13 @@ import promClient from 'prom-client'
 
 export const requestCounter = new promClient.Counter({
     name: "foxtrot_api_requests_total",
-    help: "Total number of requests processed by Foxtrot-Backend."
+    help: "Total number of requests processed by Foxtrot-Backend.",
+    labelNames: ["path"]
 })
 export const requestErrorsCounter = new promClient.Counter({
     name: "foxtrot_api_requests_errors_total",
-    help: "Total number of failed requests processed by Foxtrot-Backend."
+    help: "Total number of failed requests processed by Foxtrot-Backend.",
+    labelNames: ["path"]
 })
 export const messagesCounter = new promClient.Counter({
     name: "foxtrot_api_messages_total",
@@ -24,10 +26,12 @@ export const websocketCounter = new promClient.Gauge({
 
 // Handle metrics such as requests count and errors count
 export const metricsMiddleware: express.Handler = function (req, res, next) {
-    requestCounter.inc()
+    if (req.path !== "/foxtrot-api/metrics") {
+        requestCounter.labels(req.path).inc()
+    }
     next() // Pass through middleware
     if (res.statusCode >= 400) {
-        requestErrorsCounter.inc()
+        requestErrorsCounter.labels(req.path).inc()
     }
 }
 
