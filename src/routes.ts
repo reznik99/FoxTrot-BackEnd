@@ -301,7 +301,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     // Metrics Route
     app.get('/foxtrot-api/metrics', expressBasicAuth({ users: { "admin": METRICS_PASSWORD }, challenge: true }), async (req, res, next) => {
         try {
-            res.status(200).send(await promClient.register.getMetricsAsJSON())
+            res.status(200).contentType('application/json').send(await promClient.register.getMetricsAsJSON())
         } catch (err) {
             log_error("Metric endpoint error:", err)
             res.status(401).send({ message: "HTTP Basic Auth required" })
