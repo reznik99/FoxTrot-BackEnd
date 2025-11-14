@@ -18,19 +18,19 @@ export const InitAuth = (passport: PassportStatic) => {
         session: false,
     }, async (phone_no, password, done) => {
         try {
-            const existingRes = await pool.query('SELECT phone_no FROM users WHERE phone_no=$1', [phone_no])
+            const existingRes = await pool.query('SELECT phone_no FROM users WHERE phone_no=$1', [phone_no]);
             if (existingRes.rows.length > 0)
-                return done(null, false, { message: 'Username already taken!' })
+                return done(null, false, { message: 'Username already taken!' });
 
             // Hash password and create new user
-            const hashedPw = await hash(password, BCRYPT_SALT_ROUNDS)
-            const res = await pool.query('INSERT INTO users(phone_no, password) VALUES ($1, $2) RETURNING *', [phone_no, hashedPw])
+            const hashedPw = await hash(password, BCRYPT_SALT_ROUNDS);
+            const res = await pool.query('INSERT INTO users(phone_no, password) VALUES ($1, $2) RETURNING *', [phone_no, hashedPw]);
 
             return done(null, res.rows[0]);
 
         } catch (err: any) {
-            log_error('Signup err:', err?.errors?.[0]?.message || err)
-            return done(null, false, { message: 'Error occoured during registration. Please try again later.' })
+            log_error('Signup err:', err?.errors?.[0]?.message || err);
+            return done(null, false, { message: 'Error occoured during registration. Please try again later.' });
         }
     }));
 
@@ -46,13 +46,13 @@ export const InitAuth = (passport: PassportStatic) => {
 
             // Compare hashes
             const user = results.rows[0];
-            const equal = await compare(password, user.password)
+            const equal = await compare(password, user.password);
             if (!equal) return done(null, false, { message: 'Invalid username and/or password' });
 
             return done(null, user);
         } catch (err: any) {
-            log_error('Login err:', err?.errors?.[0]?.message || err)
-            return done(null, false, { message: 'Error during login process. Try again later' })
+            log_error('Login err:', err?.errors?.[0]?.message || err);
+            return done(null, false, { message: 'Error during login process. Try again later' });
         }
     }));
 
@@ -64,14 +64,14 @@ export const InitAuth = (passport: PassportStatic) => {
     passport.use('jwt', new JWTstrategy(opts, async (jwt_payload, done) => {
         try {
             // Not sure if this check is necessary
-            const results = await pool.query('SELECT * FROM users WHERE id=$1', [jwt_payload.id])
+            const results = await pool.query('SELECT * FROM users WHERE id=$1', [jwt_payload.id]);
             if (results.rows.length < 1)
                 return done(null, false, { message: 'Invalid Token!' });
 
             return done(null, results.rows[0]);
         } catch (err: any) {
-            log_error('JWT Verify err:', err?.errors?.[0]?.message || err)
-            return done(null, false, { message: 'Error during Token verification process. Try again later' })
+            log_error('JWT Verify err:', err?.errors?.[0]?.message || err);
+            return done(null, false, { message: 'Error during Token verification process. Try again later' });
         }
     }));
 };
