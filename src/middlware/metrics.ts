@@ -21,7 +21,7 @@ export const callsCounter = new promClient.Counter({
 })
 export const websocketCounter = new promClient.Gauge({
     name: "foxtrot_websockets_active",
-    help: "Total number of calls proxied by Foxtrot-Backend.",
+    help: "Total number of websockets handled by Foxtrot-Backend.",
 })
 
 // Handle metrics such as requests count and errors count
