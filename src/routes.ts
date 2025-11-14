@@ -77,7 +77,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [req.body.publicKey, user.id])
                         res.status(200).send({ message: 'Stored public key' })
                     } else {
-                        log_warning(`User ${user.phone_no} trying to overwrite account\'s public key. Rejected`)
+                        log_warning(`User ${user.phone_no} trying to overwrite account's public key. Rejected`)
                         res.status(403).send()
                     }
                 } catch (err: any) {
@@ -96,7 +96,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 log_error(info.message)
                 res.status(403).send(info)
             } else {
-                let { message, contact_id, contact_phone_no } = req.body
+                const { message, contact_id, contact_phone_no } = req.body
 
                 try {
                     // Store message asyncronously
@@ -158,7 +158,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(403).send(info)
             } else {
                 try {
-                    let data = req.body
+                    const data = req.body
                     await pool.query('INSERT INTO contacts VALUES ($1, $2)', [user.id, data.id])
                     const results = await pool.query('SELECT id, phone_no, public_key FROM users WHERE id = $1', [data.id])
                     if (!results.rows[0]) throw new Error("User not found")
@@ -186,7 +186,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(403).send(info)
             } else {
                 try {
-                    let data = req.body
+                    const data = req.body
                     await pool.query('DELETE FROM contacts WHERE user_id = $1 AND contact_id = $2', [user.id, data.id])
                     res.status(200).send({
                         message: 'Contact removed'
@@ -299,7 +299,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     })
 
     // Metrics Route
-    app.get('/foxtrot-api/metrics', expressBasicAuth({ users: { "admin": METRICS_PASSWORD }, challenge: true }), async (req, res, next) => {
+    app.get('/foxtrot-api/metrics', expressBasicAuth({ users: { "admin": METRICS_PASSWORD }, challenge: true }), async (req, res) => {
         try {
             res.status(200).contentType('text/plain; version=0.0.4').send(await promClient.register.metrics())
         } catch (err) {

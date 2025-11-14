@@ -52,7 +52,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
             ws.session = decoded
             log_info(logHeader, 'connection established for', decoded.phone_no)
         } catch (err) {
-            log_error(logHeader, 'connection rejected, invalid JWT')
+            log_error(logHeader, 'connection rejected, invalid JWT:', err)
             ws.close()
         }
 
@@ -98,9 +98,9 @@ export const InitWebsocketServer = (expressServer: Server) => {
                     default:
                         throw new Error(`Unknown command recieved: ${parsedData.cmd}`)
                 }
-            } catch (err: any) {
-                ws.send("Error receiving data", err.message || err)
-                log_warning(logHeader, 'Error receiving data:', err.message || err)
+            } catch (err) {
+                ws.send("Error receiving data")
+                log_warning(logHeader, 'Error receiving data:', err)
             }
         })
         ws.on('pong', () => { ws.isAlive = true })
