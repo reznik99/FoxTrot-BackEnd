@@ -76,10 +76,17 @@ export const InitWebsocketServer = (expressServer: Server) => {
                             }
                             await firebase.messaging().send({
                                 token: fcm_token,
-                                notification: {
-                                    title: `${parsedData.data.sender} is calling you`,
-                                    body: '',
-                                    imageUrl: `https://robohash.org/${parsedData.data.sender_id}?size=150x150`,
+                                android: {
+                                    priority: 'high'
+                                },
+                                data: {
+                                    caller: JSON.stringify({
+                                        id: parsedData.data.sender_id,
+                                        phone_no: parsedData.data.sender,
+                                        pic: `https://robohash.org/${parsedData.data.sender_id}?size=150x150`,
+                                        public_key: '',
+                                        session_key: ''
+                                    }),
                                 },
                             });
                             return;
