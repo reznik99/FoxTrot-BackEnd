@@ -75,7 +75,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
         ws.on('message', async (data) => {
             try {
                 const parsedData = JSON.parse(data.toString()) as SocketData;
-                const size = new Blob([data.toString()]).size
+                const size = new Blob([data.toString()]).size;
                 log_info(logHeader, `(${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${size} bytes)`);
 
                 switch (parsedData.cmd) {
@@ -87,7 +87,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
                         if (!success) {
                             webrtcCacheMessage(ws, parsedData);
                             // User is offline, send push notification to trigger call screen on receiver's device
-                            sendPushNotificationForCall(parsedData)
+                            sendPushNotificationForCall(parsedData);
                         }
                         break;
                     }
@@ -168,7 +168,7 @@ function webrtcSendCachedData(ws: WebSocket) {
             log_warning(logHeader, 'webrtc cached data expired at: ', new Date(cachedData.cacheTime).toLocaleTimeString());
             return;
         }
-        const size = new Blob([JSON.stringify(cachedData)]).size
+        const size = new Blob([JSON.stringify(cachedData)]).size;
         // Re-send offer
         if (cachedData.offer) {
             const offer = cachedData.offer;
@@ -178,7 +178,7 @@ function webrtcSendCachedData(ws: WebSocket) {
                 data: {
                     ...offer.data,
                     ring: false,
-                }
+                },
             }));
         }
         // Re-send ice-candidates
@@ -214,7 +214,7 @@ async function sendPushNotificationForCall(parsedData: SocketData) {
     const fcm_token = await getFCMToken(parsedData.data.reciever_id);
     if (!fcm_token) {
         log_warning(logHeader, 'No FCM token for user', parsedData.data.reciever_id, 'cannot send push notification for call');
-        return
+        return;
     }
     await firebase.messaging().send({
         token: fcm_token,
