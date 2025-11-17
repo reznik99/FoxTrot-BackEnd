@@ -81,36 +81,12 @@ export const InitWebsocketServer = (expressServer: Server) => {
                     // WebRTC Call Signaling logic
                     case 'CALL_OFFER': {
                         callsCounter.inc();
-                        const targetWS = wsClients.get(parsedData.data.reciever_id);
-                        if (!targetWS) {
+                        // Proxy webrtc call offer if ws online, else cache for a while and send on connection opened event
+                        const success = wsProxyMessage(ws, parsedData);
+                        if (!success) {
+                            webrtcCacheMessage(ws, parsedData);
                             // User is offline, send push notification to trigger call screen on receiver's device
-                            const fcm_token = await getFCMToken(parsedData.data.reciever_id);
-                            if (!fcm_token) {
-                                log_warning(logHeader, 'No FCM token for user', parsedData.data.reciever_id, 'cannot send push notification for call');
-                                break;
-                            }
-                            await firebase.messaging().send({
-                                token: fcm_token,
-                                android: {
-                                    priority: 'high',
-                                },
-                                data: {
-                                    caller: JSON.stringify({
-                                        id: parsedData.data.sender_id,
-                                        phone_no: parsedData.data.sender,
-                                        pic: `https://robohash.org/${parsedData.data.sender_id}?size=150x150`,
-                                        public_key: '',
-                                        session_key: '',
-                                    }),
-                                },
-                            });
-                            return;
-                        } else {
-                            // Proxy webrtc call offer if ws online, else cache for a while and send on connection opened event
-                            const success = wsProxyMessage(ws, parsedData);
-                            if (!success) {
-                                webrtcCacheMessage(ws, parsedData);
-                            }
+                            sendPushNotificationForCall(parsedData)
                         }
                         break;
                     }
@@ -229,5 +205,28 @@ function wsHeartbeat(wss: WebSocketServer) {
         }
         ws.isAlive = false;
         ws.ping();
+    });
+}
+
+async function sendPushNotificationForCall(parsedData: SocketData) {
+    const fcm_token = await getFCMToken(parsedData.data.reciever_id);
+    if (!fcm_token) {
+        log_warning(logHeader, 'No FCM token for user', parsedData.data.reciever_id, 'cannot send push notification for call');
+        return
+    }
+    await firebase.messaging().send({
+        token: fcm_token,
+        android: {
+            priority: 'high',
+        },
+        data: {
+            caller: JSON.stringify({
+                id: parsedData.data.sender_id,
+                phone_no: parsedData.data.sender,
+                pic: `https://robohash.org/${parsedData.data.sender_id}?size=150x150`,
+                public_key: '',
+                session_key: '',
+            }),
+        },
     });
 }
