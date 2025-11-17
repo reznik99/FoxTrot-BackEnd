@@ -75,7 +75,8 @@ export const InitWebsocketServer = (expressServer: Server) => {
         ws.on('message', async (data) => {
             try {
                 const parsedData = JSON.parse(data.toString()) as SocketData;
-                log_info(logHeader, `(${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${data.toString()?.length} bytes)`);
+                const size = new Blob([data.toString()]).size
+                log_info(logHeader, `(${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${size} bytes)`);
 
                 switch (parsedData.cmd) {
                     // WebRTC Call Signaling logic
@@ -146,7 +147,6 @@ function webrtcCacheMessage(ws: WebSocket, parsedData: SocketData) {
     if (!webrtcCachedData.has(key)) {
         webrtcCachedData.set(key, { icecandidates: [], cacheTime: Date.now() });
     }
-    // lint:ignore @typescript-eslint/no-non-null-assertion
     const cacheEntry = webrtcCachedData.get(key) as WebRTCData;
     switch (parsedData.cmd) {
         case 'CALL_OFFER': {
@@ -158,8 +158,6 @@ function webrtcCacheMessage(ws: WebSocket, parsedData: SocketData) {
             break;
         }
     }
-    log_debug(logHeader, 'Cached', parsedData.cmd, 'for', parsedData.data.reciever);
-    log_debug(logHeader, 'Cached size', cacheEntry.toString()?.length, 'bytes');
 }
 
 function webrtcSendCachedData(ws: WebSocket) {
@@ -170,10 +168,11 @@ function webrtcSendCachedData(ws: WebSocket) {
             log_warning(logHeader, 'webrtc cached data expired at: ', new Date(cachedData.cacheTime).toLocaleTimeString());
             return;
         }
+        const size = new Blob([JSON.stringify(cachedData)]).size
         // Re-send offer
         if (cachedData.offer) {
             const offer = cachedData.offer;
-            log_info(logHeader, `[cached](${offer.cmd}) ${offer.data.sender} -> ${offer.data.reciever}: (${offer.toString()?.length} bytes)`);
+            log_info(logHeader, `[cached](${offer.cmd}) ${offer.data.sender} -> ${offer.data.reciever}: (${size} bytes)`);
             ws.send(JSON.stringify({
                 ...offer,
                 ring: false,
@@ -183,7 +182,7 @@ function webrtcSendCachedData(ws: WebSocket) {
         // TODO: maybe rate limit these
         if (cachedData.icecandidates) {
             for (const candidate of cachedData.icecandidates) {
-                log_info(logHeader, `[cached](${candidate.cmd}) ${candidate.data.sender} -> ${candidate.data.reciever}: (${candidate.toString()?.length} bytes)`);
+                log_info(logHeader, `[cached](${candidate.cmd}) ${candidate.data.sender} -> ${candidate.data.reciever}: (${size} bytes)`);
                 ws.send(JSON.stringify(candidate));
             }
         }
