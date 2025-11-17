@@ -15,7 +15,7 @@ export default defineConfig({
     rules: {
         '@typescript-eslint/no-explicit-any': 'warn',
         '@/quotes': ['error', 'single', { 'allowTemplateLiterals': true }],
-        'max-len': ['warn', { 'code': 120 }],
+        // 'max-len': ['warn', { 'code': 120 }],
         'comma-dangle': ['error', 'always-multiline'],
         '@/semi': ['error'],
         'object-curly-spacing': ['error', 'always'],

@@ -4,7 +4,7 @@ import firebase from 'firebase-admin';
 import wslib from 'ws';
 import url from 'url';
 
-import { ResetColor, YellowColor, log_error, log_info, log_warning } from './middlware/log';
+import { ResetColor, YellowColor, log_debug, log_error, log_info, log_warning } from './middlware/log';
 import { callsCounter, websocketCounter } from './middlware/metrics';
 import { JWT_SECRET } from './config/envConfig';
 import { getFCMToken } from './routes';
@@ -28,14 +28,23 @@ export interface SocketMessage {
     message?: string;
     sent_at?: number;
     seen?: boolean;
-    offer?: any;
-    answer?: any;
-    candidate?: unknown;
+    offer?: string;
+    answer?: string;
+    candidate?: string;
+}
+interface WebRTCData {
+    // answer?: SocketMessage; // Not needed at the moment
+    offer?: SocketData;
+    icecandidates: SocketData[];
+    cacheTime: number;
 }
 
 const logHeader = `${YellowColor}WSS${ResetColor}`;
 const socketPingMs = 30000;
+const webrtcCacheMs = 30000;
+
 export const wsClients = new Map<string, WebSocket>();
+const webrtcCachedData = new Map<string, WebRTCData>();
 
 export const InitWebsocketServer = (expressServer: Server) => {
     // Define the WebSocket server. Here, the server mounts to the `/ws` route of the Express JS server.
@@ -51,6 +60,12 @@ export const InitWebsocketServer = (expressServer: Server) => {
             ws.isAlive = true;
             ws.session = decoded;
             log_info(logHeader, 'connection established for', decoded.phone_no);
+
+            // Check if any cached ice candidates await this user
+            if (webrtcCachedData.has(ws.session.id)) {
+                webrtcSendCachedData(ws);
+                webrtcCachedData.delete(ws.session.id);
+            }
         } catch (err) {
             log_error(logHeader, 'connection rejected, invalid JWT:', err);
             ws.close();
@@ -77,7 +92,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
                             await firebase.messaging().send({
                                 token: fcm_token,
                                 android: {
-                                    priority: 'high'
+                                    priority: 'high',
                                 },
                                 data: {
                                     caller: JSON.stringify({
@@ -85,21 +100,30 @@ export const InitWebsocketServer = (expressServer: Server) => {
                                         phone_no: parsedData.data.sender,
                                         pic: `https://robohash.org/${parsedData.data.sender_id}?size=150x150`,
                                         public_key: '',
-                                        session_key: ''
+                                        session_key: '',
                                     }),
                                 },
                             });
                             return;
+                        } else {
+                            // Proxy webrtc call offer if ws online, else cache for a while and send on connection opened event
+                            const success = wsProxyMessage(ws, parsedData);
+                            if (!success) {
+                                webrtcCacheMessage(ws, parsedData);
+                            }
                         }
-                        proxyMessage(ws, parsedData);
                         break;
                     }
                     case 'CALL_ICE_CANDIDATE': {
-                        proxyMessage(ws, parsedData);
+                        // Proxy webrtc ice candidate if ws online, else cache for a while and send on connection opened event
+                        const success = wsProxyMessage(ws, parsedData);
+                        if (!success) {
+                            webrtcCacheMessage(ws, parsedData);
+                        }
                         break;
                     }
                     case 'CALL_ANSWER': {
-                        proxyMessage(ws, parsedData);
+                        wsProxyMessage(ws, parsedData);
                         break;
                     }
                     default:
@@ -121,7 +145,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
         });
     });
 
-    setInterval(() => websocketHeartbeat(wss), socketPingMs);
+    setInterval(() => wsHeartbeat(wss), socketPingMs);
 };
 
 /**
@@ -129,14 +153,65 @@ export const InitWebsocketServer = (expressServer: Server) => {
  * @param ws Sender websocket (used for sender info)
  * @param parsedData data to proxy (includes destination info)
  */
-function proxyMessage(ws: WebSocket, parsedData: SocketData) {
+function wsProxyMessage(ws: WebSocket, parsedData: SocketData) {
     const targetWS = wsClients.get(parsedData.data.reciever_id);
+    if (!targetWS) { return false; }
     // Override sender info to avoid spoofing
     const proxyMsg: SocketData = {
         ...parsedData,
         data: { ...parsedData.data, sender_id: ws.session.id, sender: ws.session.phone_no },
     };
-    targetWS?.send(JSON.stringify(proxyMsg));
+    targetWS.send(JSON.stringify(proxyMsg));
+    return true;
+}
+
+function webrtcCacheMessage(ws: WebSocket, parsedData: SocketData) {
+    const key = parsedData.data.reciever_id;
+    if (!webrtcCachedData.has(key)) {
+        webrtcCachedData.set(key, { icecandidates: [], cacheTime: Date.now() });
+    }
+    // lint:ignore @typescript-eslint/no-non-null-assertion
+    const cacheEntry = webrtcCachedData.get(key) as WebRTCData;
+    switch (parsedData.cmd) {
+        case 'CALL_OFFER': {
+            cacheEntry.offer = parsedData;
+            break;
+        }
+        case 'CALL_ICE_CANDIDATE': {
+            cacheEntry.icecandidates.push(parsedData);
+            break;
+        }
+    }
+    log_debug(logHeader, 'Cached', parsedData.cmd, 'for', parsedData.data.reciever);
+    log_debug(logHeader, 'Cached size', cacheEntry.toString()?.length, 'bytes');
+}
+
+function webrtcSendCachedData(ws: WebSocket) {
+    const cachedData = webrtcCachedData.get(ws.session.id);
+    if (cachedData) {
+        // Check if cache is expired
+        if (cachedData.cacheTime < Date.now() - webrtcCacheMs) {
+            log_warning(logHeader, 'webrtc cached data expired at: ', new Date(cachedData.cacheTime).toLocaleTimeString());
+            return;
+        }
+        // Re-send offer
+        if (cachedData.offer) {
+            const offer = cachedData.offer;
+            log_info(logHeader, `[cached](${offer.cmd}) ${offer.data.sender} -> ${offer.data.reciever}: (${offer.toString()?.length} bytes)`);
+            ws.send(JSON.stringify({
+                ...offer,
+                ring: false,
+            }));
+        }
+        // Re-send ice-candidates
+        // TODO: maybe rate limit these
+        if (cachedData.icecandidates) {
+            for (const candidate of cachedData.icecandidates) {
+                log_info(logHeader, `[cached](${candidate.cmd}) ${candidate.data.sender} -> ${candidate.data.reciever}: (${candidate.toString()?.length} bytes)`);
+                ws.send(JSON.stringify(candidate));
+            }
+        }
+    }
 }
 
 /**
@@ -144,7 +219,7 @@ function proxyMessage(ws: WebSocket, parsedData: SocketData) {
  * and sends ping to the rest.
  * @param wss WebSocket server instance
  */
-function websocketHeartbeat(wss: WebSocketServer) {
+function wsHeartbeat(wss: WebSocketServer) {
     wss.clients.forEach((ws: WebSocket) => {
         if (!ws.isAlive) {
             log_info(logHeader, `${ws.session?.phone_no}'s websocket is dead. Terminating...`);
