@@ -175,7 +175,10 @@ function webrtcSendCachedData(ws: WebSocket) {
             log_info(logHeader, `[cached](${offer.cmd}) ${offer.data.sender} -> ${offer.data.reciever}: (${size} bytes)`);
             ws.send(JSON.stringify({
                 ...offer,
-                ring: false,
+                data: {
+                    ...offer.data,
+                    ring: false,
+                }
             }));
         }
         // Re-send ice-candidates
