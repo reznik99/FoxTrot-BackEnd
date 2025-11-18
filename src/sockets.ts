@@ -41,7 +41,7 @@ interface WebRTCData {
 
 const logHeader = `${YellowColor}WSS${ResetColor}`;
 const socketPingMs = 30000;
-const webrtcCacheMs = 30000;
+const webrtcCacheMs = 90000;
 
 export const wsClients = new Map<string, WebSocket>();
 const webrtcCachedData = new Map<string, WebRTCData>();
