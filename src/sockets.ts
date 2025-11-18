@@ -168,10 +168,19 @@ function webrtcSendCachedData(ws: WebSocket) {
             log_warning(logHeader, 'webrtc cached data expired at: ', new Date(cachedData.cacheTime).toLocaleTimeString());
             return;
         }
-        const size = new Blob([JSON.stringify(cachedData)]).size;
+        // Re-send ice-candidates
+        // TODO: maybe rate limit these
+        if (cachedData.icecandidates) {
+            for (const candidate of cachedData.icecandidates) {
+                const size = new Blob([JSON.stringify(candidate)]).size;
+                log_info(logHeader, `[cached](${candidate.cmd}) ${candidate.data.sender} -> ${candidate.data.reciever}: (${size} bytes)`);
+                ws.send(JSON.stringify(candidate));
+            }
+        }
         // Re-send offer
         if (cachedData.offer) {
             const offer = cachedData.offer;
+            const size = new Blob([JSON.stringify(offer)]).size;
             log_info(logHeader, `[cached](${offer.cmd}) ${offer.data.sender} -> ${offer.data.reciever}: (${size} bytes)`);
             ws.send(JSON.stringify({
                 ...offer,
@@ -180,14 +189,6 @@ function webrtcSendCachedData(ws: WebSocket) {
                     ring: false,
                 },
             }));
-        }
-        // Re-send ice-candidates
-        // TODO: maybe rate limit these
-        if (cachedData.icecandidates) {
-            for (const candidate of cachedData.icecandidates) {
-                log_info(logHeader, `[cached](${candidate.cmd}) ${candidate.data.sender} -> ${candidate.data.reciever}: (${size} bytes)`);
-                ws.send(JSON.stringify(candidate));
-            }
         }
     }
 }
