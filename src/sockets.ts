@@ -58,7 +58,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
             wsClients.set(decoded.id, ws);
             ws.isAlive = true;
             ws.session = decoded;
-            logger.info('WSS: connection established for', decoded.phone_no);
+            logger.info({ user: decoded.phone_no }, 'WSS: connection established for');
 
             // Check if any cached ice candidates await this user
             if (webrtcCachedData.has(ws.session.id)) {
@@ -112,9 +112,9 @@ export const InitWebsocketServer = (expressServer: Server) => {
         });
         ws.on('pong', () => { ws.isAlive = true; });
         ws.on('ping', () => ws.pong());
-        ws.on('error', (err) => logger.warn('WSS: Websocket error for', ws.session?.phone_no, ':', err));
+        ws.on('error', (err) => logger.warn({ err: err, user: ws.session?.phone_no }, 'WSS: Websocket error'));
         ws.on('close', (code) => {
-            logger.info('WSS: Closing websocket for', ws.session?.phone_no, 'with code', code);
+            logger.info({ user: ws.session?.phone_no, code: code }, 'WSS: Closing websocket');
             const deleted = wsClients.delete(ws.session?.id);
             if (deleted) websocketCounter.dec();
             ws.close();
