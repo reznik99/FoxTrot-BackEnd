@@ -58,7 +58,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
             wsClients.set(decoded.id, ws);
             ws.isAlive = true;
             ws.session = decoded;
-            logger.info({ user: decoded.phone_no }, 'WSS: connection established for');
+            logger.info({ user: decoded.phone_no }, 'WSS: connection established');
 
             // Check if any cached ice candidates await this user
             if (webrtcCachedData.has(ws.session.id)) {
@@ -106,15 +106,15 @@ export const InitWebsocketServer = (expressServer: Server) => {
                         throw new Error(`Unknown command recieved: ${parsedData.cmd}`);
                 }
             } catch (err) {
-                logger.error(err, 'WSS: Error receiving data');
+                logger.error(err, 'WSS: error receiving data');
                 ws.send('Error receiving data');
             }
         });
         ws.on('pong', () => { ws.isAlive = true; });
         ws.on('ping', () => ws.pong());
-        ws.on('error', (err) => logger.warn({ err: err, user: ws.session?.phone_no }, 'WSS: Websocket error'));
+        ws.on('error', (err) => logger.warn({ err: err, user: ws.session?.phone_no }, 'WSS: websocket error'));
         ws.on('close', (code) => {
-            logger.info({ user: ws.session?.phone_no, code: code }, 'WSS: Closing websocket');
+            logger.info({ user: ws.session?.phone_no, code: code }, 'WSS: closing websocket');
             const deleted = wsClients.delete(ws.session?.id);
             if (deleted) websocketCounter.dec();
             ws.close();
@@ -216,7 +216,7 @@ async function sendPushNotificationForCall(parsedData: SocketData) {
         logger.warn({
             receiverId: parsedData.data.reciever_id,
             note: 'cannot send push notification for call',
-        }, 'WSS: No FCM token for user');
+        }, 'WSS: no FCM token for user');
         return;
     }
     await firebaseMessaging.send({
