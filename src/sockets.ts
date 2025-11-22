@@ -1,13 +1,13 @@
 import { IncomingMessage, Server } from 'http';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import firebase from 'firebase-admin';
 import wslib from 'ws';
 import url from 'url';
 
-import { ResetColor, YellowColor, log_debug, log_error, log_info, log_warning } from './middlware/log';
+import { ResetColor, YellowColor, log_error, log_info, log_warning } from './middlware/log';
 import { callsCounter, websocketCounter } from './middlware/metrics';
 import { JWT_SECRET } from './config/envConfig';
 import { getFCMToken } from './routes';
+import { firebaseMessaging } from '.';
 
 interface WebSocketServer extends wslib.Server {
     clients: Set<WebSocket>
@@ -217,7 +217,7 @@ async function sendPushNotificationForCall(parsedData: SocketData) {
         log_warning(logHeader, 'No FCM token for user', parsedData.data.reciever_id, 'cannot send push notification for call');
         return;
     }
-    await firebase.messaging().send({
+    await firebaseMessaging.send({
         token: fcm_token,
         android: {
             priority: 'high',

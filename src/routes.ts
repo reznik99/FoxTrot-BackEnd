@@ -1,20 +1,16 @@
 
-import firebase from 'firebase-admin';
 import { PassportStatic } from 'passport';
 import { Express } from 'express';
 import { sign } from 'jsonwebtoken';
 import expressBasicAuth from 'express-basic-auth';
 import promClient from 'prom-client';
 
-import serviceAccount from './config/foxtrot-push-notifications-firebase-adminsdk.json';
 import { pool, JWT_SECRET, METRICS_PASSWORD } from './config/envConfig';
 import { log_error, log_info, log_warning } from './middlware/log';
 import { messagesCounter } from './middlware/metrics';
 import { wsClients } from './sockets';
+import { firebaseMessaging } from '.';
 
-firebase.initializeApp({
-    credential: firebase.credential.cert(serviceAccount as firebase.ServiceAccount),
-});
 
 export const devices = new Map<string, string>();
 
@@ -130,7 +126,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                             res.status(200).send({ message: 'Message Sent. Push Notification failed to send' });
                             return;
                         }
-                        await firebase.messaging().send({
+                        await firebaseMessaging.send({
                             token: fcm_token,
                             notification: {
                                 title: `Message from ${user.phone_no}`,
@@ -229,7 +225,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             } else {
                 try {
                     const prefix = req.params.prefix;
-                    const result = await pool.query('SELECT id, phone_no, public_key FROM users WHERE phone_no ILIKE $1 AND phone_no != $2 LIMIT 10', [`${prefix  }%`, user.phone_no]);
+                    const result = await pool.query('SELECT id, phone_no, public_key FROM users WHERE phone_no ILIKE $1 AND phone_no != $2 LIMIT 10', [`${prefix}%`, user.phone_no]);
                     res.status(200).send(result.rows);
                 } catch (err: any) {
                     log_error(err.message || err);
