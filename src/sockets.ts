@@ -4,7 +4,7 @@ import wslib from 'ws';
 import url from 'url';
 
 import { callsCounter, websocketCounter } from './middlware/metrics';
-import { JWT_SECRET } from './config/envConfig';
+import { ServerConfig } from './config/envConfig';
 import { getFCMToken } from './routes';
 import { firebaseMessaging } from '.';
 import { logger } from './middlware/log';
@@ -54,7 +54,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
         const token = url.parse(req.url as string, true).query.token as string;
 
         try {
-            const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+            const decoded = jwt.verify(token, ServerConfig.JWT_SECRET) as JwtPayload;
             wsClients.set(decoded.id, ws);
             ws.isAlive = true;
             ws.session = decoded;
