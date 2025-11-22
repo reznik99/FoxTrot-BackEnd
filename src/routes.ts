@@ -4,8 +4,9 @@ import { Express } from 'express';
 import { sign } from 'jsonwebtoken';
 import expressBasicAuth from 'express-basic-auth';
 import promClient from 'prom-client';
+import { createHmac } from 'crypto';
 
-import { pool, JWT_SECRET, METRICS_PASSWORD } from './config/envConfig';
+import { ServerConfig, pool } from './config/envConfig';
 import { messagesCounter } from './middlware/metrics';
 import { wsClients } from './sockets';
 import { firebaseMessaging } from '.';
@@ -26,7 +27,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(403).send(info);
             } else {
                 req.logIn(user, () => {
-                    const token = sign({ id: user.id, phone_no: user.phone_no }, JWT_SECRET, {
+                    const token = sign({ id: user.id, phone_no: user.phone_no }, ServerConfig.JWT_SECRET, {
                         expiresIn: 60 * 60,
                     });
                     res.status(200).send({
@@ -293,9 +294,21 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
             }
         })(req, res, next);
     });
+    app.get('/foxtrot-api/turnServerKey', (req, res, next) => {
+        passport.authenticate('jwt', (err, user, info) => {
+            if (err || info) {
+                logger.error(info.message || err);
+                res.status(401).send();
+            } else {
+                // Generate access credentials for TURN server for this user
+                const creds = generateTURNServerCredentials(user.phone_no);
+                res.status(200).send(creds);
+            }
+        })(req, res, next);
+    });
 
     // Metrics Route
-    app.get('/foxtrot-api/metrics', expressBasicAuth({ users: { 'admin': METRICS_PASSWORD }, challenge: true }), async (req, res) => {
+    app.get('/foxtrot-api/metrics', expressBasicAuth({ users: { 'admin': ServerConfig.METRICS_PASSWORD }, challenge: true }), async (req, res) => {
         try {
             res.status(200).contentType('text/plain; version=0.0.4').send(await promClient.register.metrics());
         } catch (err) {
@@ -313,4 +326,14 @@ export const getFCMToken = async (user_id: string) => {
     const fcmToken = res.rows[0].fcm_token as string;
     devices.set(user_id, fcmToken);
     return fcmToken;
+};
+
+const generateTURNServerCredentials = (username: string) => {
+    // Concat username with time so we rotate the secret over time
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const timedUsername = `${nowSeconds + ServerConfig.TURN_TTL}:${username}`;
+    const hmac = createHmac('sha1', ServerConfig.TURN_SECRET)
+        .update(timedUsername)
+        .digest('base64');
+    return { username: timedUsername, credential: hmac };
 };

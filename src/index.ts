@@ -8,15 +8,18 @@ import { InitWebsocketServer } from './sockets';
 import { CreateRoutes } from './routes';
 import { InitAuth } from './middlware/auth';
 import { InitMetrics, metricsMiddleware } from './middlware/metrics';
-import { PORT, JWT_SECRET, METRICS_PASSWORD } from './config/envConfig';
+import { ServerConfig } from './config/envConfig';
 import serviceAccount from './config/foxtrot-push-notifications-firebase-adminsdk.json';
 import { logger, httpLoggerConfig } from './middlware/log';
 
-if (JWT_SECRET === '') {
+if (!ServerConfig.JWT_SECRET) {
     logger.error('JWT Secret not found in env but is required!');
     process.exit(1);
-} else if (METRICS_PASSWORD === '') {
+} else if (!ServerConfig.METRICS_PASSWORD) {
     logger.error('Password for /metrics not found in env but is required!');
+    process.exit(1);
+} else if (!ServerConfig.TURN_SECRET) {
+    logger.error('TURN server secret is required!');
     process.exit(1);
 }
 
@@ -39,8 +42,8 @@ InitAuth(passport);
 CreateRoutes(app, passport);
 
 // Start & Listen
-const expressServer = app.listen(PORT, () => {
-    logger.info(`FoxTrot Server mode:${process.env.NODE_ENV} listening on ${PORT}`);
+const expressServer = app.listen(ServerConfig.PORT, () => {
+    logger.info(`FoxTrot Server mode:${process.env.NODE_ENV} listening on ${ServerConfig.PORT}`);
 });
 
 InitWebsocketServer(expressServer);

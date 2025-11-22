@@ -4,7 +4,7 @@ import * as dotenv from 'dotenv';
 
 dotenv.config({ path: path.join(__dirname, '.env') });
 
-export const pool = new Pool({
+const pool = new Pool({
     user: process.env.DB_USER,
     host: process.env.DB_HOST,
     database: process.env.DB_DATABASE,
@@ -12,6 +12,18 @@ export const pool = new Pool({
     port: parseInt(process.env.DB_PORT || '5432'),
 });
 
-export const JWT_SECRET = process.env.JWT_SECRET || '';
-export const METRICS_PASSWORD = process.env.METRICS_PASSWORD || '';
-export const PORT = parseInt(process.env.PORT || '1234');
+
+const ServerConfig = {
+    PORT: parseInt(process.env.PORT || '1234'),
+    // TODO: Autogenerate this!
+    JWT_SECRET: process.env.JWT_SECRET || '',
+    METRICS_PASSWORD: process.env.METRICS_PASSWORD || '',
+    // TURN enviroment variables for WebRTC Call Proxying in case Peer-To-Peer fails (CGNAT or Symmetric NAT)
+    TURN_SECRET: process.env.TURN_SECRET || '',
+    TURN_TTL: Number(process.env.TURN_TTL || 3600),
+};
+
+export {
+    ServerConfig,
+    pool,
+};
