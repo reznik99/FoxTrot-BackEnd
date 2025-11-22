@@ -3,11 +3,11 @@ import jwt, { JwtPayload } from 'jsonwebtoken';
 import wslib from 'ws';
 import url from 'url';
 
-import { ResetColor, YellowColor, log_error, log_info, log_warning } from './middlware/log';
 import { callsCounter, websocketCounter } from './middlware/metrics';
 import { JWT_SECRET } from './config/envConfig';
 import { getFCMToken } from './routes';
 import { firebaseMessaging } from '.';
+import logger from './middlware/log';
 
 interface WebSocketServer extends wslib.Server {
     clients: Set<WebSocket>
@@ -39,7 +39,6 @@ interface WebRTCData {
     cacheTime: number;
 }
 
-const logHeader = `${YellowColor}WSS${ResetColor}`;
 const socketPingMs = 30000;
 const webrtcCacheMs = 90000;
 
@@ -59,7 +58,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
             wsClients.set(decoded.id, ws);
             ws.isAlive = true;
             ws.session = decoded;
-            log_info(logHeader, 'connection established for', decoded.phone_no);
+            logger.info('WSS: connection established for', decoded.phone_no);
 
             // Check if any cached ice candidates await this user
             if (webrtcCachedData.has(ws.session.id)) {
@@ -67,7 +66,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
                 webrtcCachedData.delete(ws.session.id);
             }
         } catch (err) {
-            log_error(logHeader, 'connection rejected, invalid JWT:', err);
+            logger.error(err, 'WSS: connection rejected, invalid JWT');
             ws.close();
         }
 
@@ -76,7 +75,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
             try {
                 const parsedData = JSON.parse(data.toString()) as SocketData;
                 const size = new Blob([data.toString()]).size;
-                log_info(logHeader, `(${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${size} bytes)`);
+                logger.info(`WSS: (${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${size} bytes)`);
 
                 switch (parsedData.cmd) {
                     // WebRTC Call Signaling logic
@@ -107,15 +106,15 @@ export const InitWebsocketServer = (expressServer: Server) => {
                         throw new Error(`Unknown command recieved: ${parsedData.cmd}`);
                 }
             } catch (err) {
+                logger.error(err, 'WSS: Error receiving data');
                 ws.send('Error receiving data');
-                log_warning(logHeader, 'Error receiving data:', err);
             }
         });
         ws.on('pong', () => { ws.isAlive = true; });
         ws.on('ping', () => ws.pong());
-        ws.on('error', (err) => log_warning(logHeader, 'Websocket error for', ws.session?.phone_no, ':', err));
+        ws.on('error', (err) => logger.warn('WSS: Websocket error for', ws.session?.phone_no, ':', err));
         ws.on('close', (code) => {
-            log_info(logHeader, 'Closing websocket for', ws.session?.phone_no, 'with code', code);
+            logger.info('WSS: Closing websocket for', ws.session?.phone_no, 'with code', code);
             const deleted = wsClients.delete(ws.session?.id);
             if (deleted) websocketCounter.dec();
             ws.close();
@@ -165,7 +164,7 @@ function webrtcSendCachedData(ws: WebSocket) {
     if (cachedData) {
         // Check if cache is expired
         if (cachedData.cacheTime < Date.now() - webrtcCacheMs) {
-            log_warning(logHeader, 'webrtc cached data expired at: ', new Date(cachedData.cacheTime).toLocaleTimeString());
+            logger.warn({ cacheTime: new Date(cachedData.cacheTime).toLocaleTimeString() }, 'WSS: webrtc cached data expired at');
             return;
         }
         // Re-send ice-candidates
@@ -173,7 +172,7 @@ function webrtcSendCachedData(ws: WebSocket) {
         if (cachedData.icecandidates) {
             for (const candidate of cachedData.icecandidates) {
                 const size = new Blob([JSON.stringify(candidate)]).size;
-                log_info(logHeader, `[cached](${candidate.cmd}) ${candidate.data.sender} -> ${candidate.data.reciever}: (${size} bytes)`);
+                logger.info(`WSS: [cached](${candidate.cmd}) ${candidate.data.sender} -> ${candidate.data.reciever}: (${size} bytes)`);
                 ws.send(JSON.stringify(candidate));
             }
         }
@@ -181,7 +180,7 @@ function webrtcSendCachedData(ws: WebSocket) {
         if (cachedData.offer) {
             const offer = cachedData.offer;
             const size = new Blob([JSON.stringify(offer)]).size;
-            log_info(logHeader, `[cached](${offer.cmd}) ${offer.data.sender} -> ${offer.data.reciever}: (${size} bytes)`);
+            logger.info(`WSS: [cached](${offer.cmd}) ${offer.data.sender} -> ${offer.data.reciever}: (${size} bytes)`);
             ws.send(JSON.stringify({
                 ...offer,
                 data: {
@@ -201,7 +200,7 @@ function webrtcSendCachedData(ws: WebSocket) {
 function wsHeartbeat(wss: WebSocketServer) {
     wss.clients.forEach((ws: WebSocket) => {
         if (!ws.isAlive) {
-            log_info(logHeader, `${ws.session?.phone_no}'s websocket is dead. Terminating...`);
+            logger.info({ phone_no: ws.session?.phone_no }, 'WSS: websocket is dead. Terminating...');
             wsClients.delete(ws.session?.id);
             websocketCounter.dec();
             return ws.terminate();
@@ -214,7 +213,10 @@ function wsHeartbeat(wss: WebSocketServer) {
 async function sendPushNotificationForCall(parsedData: SocketData) {
     const fcm_token = await getFCMToken(parsedData.data.reciever_id);
     if (!fcm_token) {
-        log_warning(logHeader, 'No FCM token for user', parsedData.data.reciever_id, 'cannot send push notification for call');
+        logger.warn({
+            receiverId: parsedData.data.reciever_id,
+            note: 'cannot send push notification for call'
+        }, 'WSS: No FCM token for user');
         return;
     }
     await firebaseMessaging.send({

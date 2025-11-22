@@ -5,7 +5,7 @@ import { PassportStatic } from 'passport';
 import { hash, compare } from 'bcryptjs';
 
 import { pool, JWT_SECRET } from '../config/envConfig';
-import { log_error } from './log';
+import logger from './log';
 
 const BCRYPT_SALT_ROUNDS = 12;
 
@@ -29,7 +29,7 @@ export const InitAuth = (passport: PassportStatic) => {
             return done(null, res.rows[0]);
 
         } catch (err: any) {
-            log_error('Signup err:', err?.errors?.[0]?.message || err);
+            logger.error(err?.errors?.[0]?.message || err, 'Signup err');
             return done(null, false, { message: 'Error occoured during registration. Please try again later.' });
         }
     }));
@@ -51,7 +51,7 @@ export const InitAuth = (passport: PassportStatic) => {
 
             return done(null, user);
         } catch (err: any) {
-            log_error('Login err:', err?.errors?.[0]?.message || err);
+            logger.error(err?.errors?.[0]?.message || err, 'Login err',);
             return done(null, false, { message: 'Error during login process. Try again later' });
         }
     }));
@@ -70,7 +70,7 @@ export const InitAuth = (passport: PassportStatic) => {
 
             return done(null, results.rows[0]);
         } catch (err: any) {
-            log_error('JWT Verify err:', err?.errors?.[0]?.message || err);
+            logger.error(err?.errors?.[0]?.message || err, 'JWT Verify err');
             return done(null, false, { message: 'Error during Token verification process. Try again later' });
         }
     }));
