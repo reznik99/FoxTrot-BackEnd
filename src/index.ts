@@ -10,7 +10,7 @@ import { InitAuth } from './middlware/auth';
 import { InitMetrics, metricsMiddleware } from './middlware/metrics';
 import { PORT, JWT_SECRET, METRICS_PASSWORD } from './config/envConfig';
 import serviceAccount from './config/foxtrot-push-notifications-firebase-adminsdk.json';
-import logger from './middlware/log';
+import { logger, httpLoggerConfig } from './middlware/log';
 
 if (JWT_SECRET === '') {
     logger.error('JWT Secret not found in env but is required!');
@@ -29,7 +29,7 @@ const app = express();
 
 // Middleware & Logging
 app.use(bodyParser.json({ limit: '10mb' }));
-app.use(pinoHttp({ logger }));
+app.use(pinoHttp(httpLoggerConfig));
 app.use(metricsMiddleware);
 app.use(passport.initialize());
 

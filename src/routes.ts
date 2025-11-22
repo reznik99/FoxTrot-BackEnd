@@ -9,7 +9,7 @@ import { pool, JWT_SECRET, METRICS_PASSWORD } from './config/envConfig';
 import { messagesCounter } from './middlware/metrics';
 import { wsClients } from './sockets';
 import { firebaseMessaging } from '.';
-import logger from './middlware/log';
+import { logger } from './middlware/log';
 
 
 export const devices = new Map<string, string>();
@@ -73,7 +73,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [req.body.publicKey, user.id]);
                         res.status(200).send({ message: 'Stored public key' });
                     } else {
-                        logger.warn({ phone_no: user.phone_no }, "User trying to overwrite account's public key. Rejected");
+                        logger.warn({ phone_no: user.phone_no }, 'User trying to overwrite account\'s public key. Rejected');
                         res.status(403).send();
                     }
                 } catch (err: any) {

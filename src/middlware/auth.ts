@@ -5,7 +5,7 @@ import { PassportStatic } from 'passport';
 import { hash, compare } from 'bcryptjs';
 
 import { pool, JWT_SECRET } from '../config/envConfig';
-import logger from './log';
+import { logger } from './log';
 
 const BCRYPT_SALT_ROUNDS = 12;
 
@@ -51,7 +51,7 @@ export const InitAuth = (passport: PassportStatic) => {
 
             return done(null, user);
         } catch (err: any) {
-            logger.error(err?.errors?.[0]?.message || err, 'Login err',);
+            logger.error(err?.errors?.[0]?.message || err, 'Login err');
             return done(null, false, { message: 'Error during login process. Try again later' });
         }
     }));

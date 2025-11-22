@@ -7,7 +7,7 @@ import { callsCounter, websocketCounter } from './middlware/metrics';
 import { JWT_SECRET } from './config/envConfig';
 import { getFCMToken } from './routes';
 import { firebaseMessaging } from '.';
-import logger from './middlware/log';
+import { logger } from './middlware/log';
 
 interface WebSocketServer extends wslib.Server {
     clients: Set<WebSocket>
@@ -215,7 +215,7 @@ async function sendPushNotificationForCall(parsedData: SocketData) {
     if (!fcm_token) {
         logger.warn({
             receiverId: parsedData.data.reciever_id,
-            note: 'cannot send push notification for call'
+            note: 'cannot send push notification for call',
         }, 'WSS: No FCM token for user');
         return;
     }
