@@ -1,4 +1,5 @@
 import pino from 'pino';
+import { Options } from 'pino-http';
 
 const logger = pino({
     level: process.env.LOG_LEVEL || 'debug',
@@ -7,32 +8,22 @@ const logger = pino({
         options: {
             colorize: true,
             translateTime: true,
-            singleLine: false,
+            singleLine: true,
+            ignore: 'req,res,hostname,pid,reqId,responseTime',
         },
     },
 });
 
-const httpLoggerConfig = {
+const httpLoggerConfig: Options = {
     logger,
-    autoLogging: true,
-
-    serializers: {
-        req(req) {
-            return {
-                method: req.method,
-                url: req.url,
-            };
-        },
-        res(res) {
-            return {
-                statusCode: res.statusCode,
-                responseTime: res.responseTime, // set automatically by pino-http
-            };
-        },
+    autoLogging: {
+        ignore: (req) => req.url === '/foxtrot-api/metrics',
     },
-
-    customSuccessMessage(req, res) {
-        return `${req.method} ${req.url} ${res.statusCode} in ${res.responseTime}ms`;
+    quietReqLogger: true,
+    quietResLogger: true,
+    customSuccessMessage(req, res, responseTime) {
+        const contentLength = res.getHeader('Content-Length') || 0;
+        return `${req.method} ${req.url} ${res.statusCode} ${contentLength}bytes in ${responseTime}ms`;
     },
     customErrorMessage(req, res, err) {
         return `${req.method} ${req.url} errored with ${res.statusCode}: ${err.message}`;
