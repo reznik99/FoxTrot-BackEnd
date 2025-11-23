@@ -63,7 +63,6 @@ export const InitWebsocketServer = (expressServer: Server) => {
             // Check if any cached ice candidates await this user
             if (webrtcCachedData.has(ws.session.id)) {
                 webrtcSendCachedData(ws);
-                webrtcCachedData.delete(ws.session.id);
             }
         } catch (err) {
             logger.error(err, 'WSS: connection rejected, invalid JWT');
@@ -173,8 +172,10 @@ function webrtcCacheMessage(parsedData: SocketData) {
  * @param ws receiver of cached webrtc data
  */
 function webrtcSendCachedData(ws: WebSocket) {
-    const cachedData = webrtcCachedData.get(ws.session.id);
-    if (cachedData) {
+    try {
+        const cachedData = webrtcCachedData.get(ws.session.id);
+        if (!cachedData) { return; }
+
         // Check if cache is expired
         if (cachedData.cacheTime < Date.now() - webrtcCacheMs) {
             logger.warn({ cacheTime: new Date(cachedData.cacheTime).toLocaleTimeString() }, 'WSS: webrtc cached data expired at');
@@ -202,6 +203,8 @@ function webrtcSendCachedData(ws: WebSocket) {
                 },
             }));
         }
+    } finally {
+        webrtcCachedData.delete(ws.session.id);
     }
 }
 
@@ -221,6 +224,12 @@ function wsHeartbeat(wss: WebSocketServer) {
         ws.isAlive = false;
         ws.ping();
     });
+    // Clear out cached webrtc data if any
+    for (const [key, value] of webrtcCachedData) {
+        if (value.cacheTime < Date.now() - webrtcCacheMs) {
+            webrtcCachedData.delete(key);
+        }
+    }
 }
 
 /**
