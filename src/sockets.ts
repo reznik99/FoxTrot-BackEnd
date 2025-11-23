@@ -17,7 +17,7 @@ interface WebSocket extends wslib {
     session: JwtPayload;
 }
 export interface SocketData {
-    cmd: 'MSG' | 'CALL_OFFER' | 'CALL_ICE_CANDIDATE' | 'CALL_ANSWER';
+    cmd: 'MSG' | 'CALL_OFFER' | 'CALL_ICE_CANDIDATE' | 'CALL_ANSWER' | 'CALL_CLOSED';
     data: SocketMessage;
 }
 export interface SocketMessage {
@@ -84,7 +84,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
                         // Proxy webrtc call offer if ws online, else cache for a while and send on connection opened event
                         const success = wsProxyMessage(ws, parsedData);
                         if (!success) {
-                            webrtcCacheMessage(ws, parsedData);
+                            webrtcCacheMessage(parsedData);
                             // User is offline, send push notification to trigger call screen on receiver's device
                             sendPushNotificationForCall(parsedData);
                         }
@@ -94,11 +94,15 @@ export const InitWebsocketServer = (expressServer: Server) => {
                         // Proxy webrtc ice candidate if ws online, else cache for a while and send on connection opened event
                         const success = wsProxyMessage(ws, parsedData);
                         if (!success) {
-                            webrtcCacheMessage(ws, parsedData);
+                            webrtcCacheMessage(parsedData);
                         }
                         break;
                     }
                     case 'CALL_ANSWER': {
+                        wsProxyMessage(ws, parsedData);
+                        break;
+                    }
+                    case 'CALL_CLOSED': {
                         wsProxyMessage(ws, parsedData);
                         break;
                     }
@@ -141,7 +145,12 @@ function wsProxyMessage(ws: WebSocket, parsedData: SocketData) {
     return true;
 }
 
-function webrtcCacheMessage(ws: WebSocket, parsedData: SocketData) {
+/**
+ * Caches CALL_OFFER and CALL_ICE_CANDIDATE into cache for future use.
+ * Used for handling calling while one user is offline / closed app
+ * @param parsedData socket data to extract webrtc info from
+ */
+function webrtcCacheMessage(parsedData: SocketData) {
     const key = parsedData.data.reciever_id;
     if (!webrtcCachedData.has(key)) {
         webrtcCachedData.set(key, { icecandidates: [], cacheTime: Date.now() });
@@ -159,6 +168,10 @@ function webrtcCacheMessage(ws: WebSocket, parsedData: SocketData) {
     }
 }
 
+/**
+ * Sends all the previously cached webrtc data to the supplied websocket
+ * @param ws receiver of cached webrtc data
+ */
 function webrtcSendCachedData(ws: WebSocket) {
     const cachedData = webrtcCachedData.get(ws.session.id);
     if (cachedData) {
@@ -210,6 +223,10 @@ function wsHeartbeat(wss: WebSocketServer) {
     });
 }
 
+/**
+ * Sends a DATA PUSH notification through firebase to the reciever, this triggers a call-screen.
+ * @param parsedData 
+ */
 async function sendPushNotificationForCall(parsedData: SocketData) {
     const fcm_token = await getFCMToken(parsedData.data.reciever_id);
     if (!fcm_token) {
@@ -228,7 +245,7 @@ async function sendPushNotificationForCall(parsedData: SocketData) {
             caller: JSON.stringify({
                 id: parsedData.data.sender_id,
                 phone_no: parsedData.data.sender,
-                pic: `https://robohash.org/${parsedData.data.sender_id}?size=150x150`,
+                pic: `https://robohash.org/${parsedData.data.sender_id}?size=200x200`,
                 public_key: '',
                 session_key: '',
             }),
