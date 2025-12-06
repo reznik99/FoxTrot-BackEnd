@@ -14,6 +14,7 @@ const pool = new Pool({
 
 
 const ServerConfig = {
+    NODE_ENV: process.env.NODE_ENV,
     PORT: parseInt(process.env.PORT || '1234'),
     // TODO: Autogenerate this!
     JWT_SECRET: process.env.JWT_SECRET || '',

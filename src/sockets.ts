@@ -33,14 +33,13 @@ export interface SocketMessage {
     candidate?: string;
 }
 interface WebRTCData {
-    // answer?: SocketMessage; // Not needed at the moment
     offer?: SocketData;
     icecandidates: SocketData[];
     cacheTime: number;
 }
 
-const socketPingMs = 30000;
-const webrtcCacheMs = 90000;
+const socketPingMs = 30_000;    // 30s ping timeout
+const webrtcCacheMs = 90_000;   // 90s webrtc metadata expiry
 
 export const wsClients = new Map<string, WebSocket>();
 const webrtcCachedData = new Map<string, WebRTCData>();
@@ -61,7 +60,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
             // Update metrics for active websocket counter
             websocketCounter.inc();
             // Set active status in database
-            await pool.query('UPDATE users SET online=$1, last_seen=NOW() WHERE id=$2', [true, ws.session.id])
+            await pool.query('UPDATE users SET online=$1, last_seen=NOW() WHERE id=$2', [true, ws.session.id]);
             // Check if any cached ice candidates await this user
             if (webrtcCachedData.has(ws.session.id)) {
                 webrtcSendCachedData(ws);
@@ -105,6 +104,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
                         break;
                     }
                     case 'CALL_CLOSED': {
+                        // TODO: Check call ID to ensure right call is declined
                         wsProxyMessage(ws, parsedData);
                         break;
                     }
@@ -132,9 +132,9 @@ export const InitWebsocketServer = (expressServer: Server) => {
                 const deleted = wsClients.delete(ws.session?.id);
                 if (deleted) websocketCounter.dec();
                 // Set active status in database
-                await pool.query('UPDATE users SET online=$1, last_seen=NOW() WHERE id=$2', [false, ws.session.id])
+                await pool.query('UPDATE users SET online=$1, last_seen=NOW() WHERE id=$2', [false, ws.session.id]);
             } catch (err) {
-                logger.error(err, "WSS: error on websocket close event")
+                logger.warn({ err: err, user: ws.session?.phone_no }, 'WSS: error on websocket close event');
             }
         });
     });

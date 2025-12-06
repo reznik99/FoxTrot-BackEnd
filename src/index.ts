@@ -43,7 +43,7 @@ CreateRoutes(app, passport);
 
 // Start & Listen
 const expressServer = app.listen(ServerConfig.PORT, () => {
-    logger.info(`FoxTrot Server mode:${process.env.NODE_ENV} listening on ${ServerConfig.PORT}`);
+    logger.info(`FoxTrot Server mode:${ServerConfig.NODE_ENV} listening on ${ServerConfig.PORT}`);
 });
 
 InitWebsocketServer(expressServer);
