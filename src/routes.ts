@@ -206,7 +206,12 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(403).send(info);
             } else {
                 try {
-                    const results = await pool.query('SELECT id, phone_no, public_key FROM users WHERE id IN (SELECT contact_id FROM contacts WHERE user_id = $1)', [user.id]);
+                    const results = await pool.query(`
+                        SELECT u.id, u.phone_no, u.public_key, u.online, u.last_seen
+                        FROM users AS u
+                        INNER JOIN contacts AS c
+                        ON u.id = c.contact_id
+                        WHERE c.user_id = $1`, [user.id]);
                     res.status(200).send(results.rows);
                 } catch (err: any) {
                     logger.error(err, 'Error in getContacts');
