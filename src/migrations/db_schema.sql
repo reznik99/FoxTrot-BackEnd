@@ -4,7 +4,9 @@ CREATE TABLE users(
     phone_no varchar(16) NOT NULL,
     password CHAR(60) NOT NULL,
     public_key text,
-    fcm_token text
+    fcm_token text,
+    online boolean DEFAULT false,
+    last_seen timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE contacts(

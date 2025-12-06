@@ -4,7 +4,7 @@ import wslib from 'ws';
 import url from 'url';
 
 import { callsCounter, websocketCounter } from './middlware/metrics';
-import { ServerConfig } from './config/envConfig';
+import { pool, ServerConfig } from './config/envConfig';
 import { getFCMToken } from './routes';
 import { firebaseMessaging } from '.';
 import { logger } from './middlware/log';
@@ -49,8 +49,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
     // Define the WebSocket server. Here, the server mounts to the `/ws` route of the Express JS server.
     const wss = new wslib.Server({ server: expressServer, path: '/foxtrot-api/ws' }) as WebSocketServer;
 
-    wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
-        websocketCounter.inc();
+    wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
         const token = url.parse(req.url as string, true).query.token as string;
 
         try {
@@ -59,7 +58,10 @@ export const InitWebsocketServer = (expressServer: Server) => {
             ws.isAlive = true;
             ws.session = decoded;
             logger.info({ user: decoded.phone_no }, 'WSS: connection established');
-
+            // Update metrics for active websocket counter
+            websocketCounter.inc();
+            // Set active status in database
+            await pool.query('UPDATE users SET online=$1, last_seen=NOW() WHERE id=$2', [true, ws.session.id])
             // Check if any cached ice candidates await this user
             if (webrtcCachedData.has(ws.session.id)) {
                 webrtcSendCachedData(ws);
@@ -67,6 +69,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
         } catch (err) {
             logger.error(err, 'WSS: connection rejected, invalid JWT');
             ws.close();
+            return;
         }
 
         // Individual websocket event handlers
@@ -113,14 +116,26 @@ export const InitWebsocketServer = (expressServer: Server) => {
                 ws.send('Error receiving data');
             }
         });
-        ws.on('pong', () => { ws.isAlive = true; });
-        ws.on('ping', () => ws.pong());
-        ws.on('error', (err) => logger.warn({ err: err, user: ws.session?.phone_no }, 'WSS: websocket error'));
-        ws.on('close', (code) => {
-            logger.info({ user: ws.session?.phone_no, code: code }, 'WSS: closing websocket');
-            const deleted = wsClients.delete(ws.session?.id);
-            if (deleted) websocketCounter.dec();
-            ws.close();
+        ws.on('pong', () => {
+            ws.isAlive = true;
+        });
+        ws.on('ping', () => {
+            ws.pong();
+        });
+        ws.on('error', (err) => {
+            logger.warn({ err: err, user: ws.session?.phone_no }, 'WSS: websocket error');
+        });
+        ws.on('close', async (code) => {
+            try {
+                logger.info({ user: ws.session?.phone_no, code: code }, 'WSS: closing websocket');
+                // Delete socket info and update metrics
+                const deleted = wsClients.delete(ws.session?.id);
+                if (deleted) websocketCounter.dec();
+                // Set active status in database
+                await pool.query('UPDATE users SET online=$1, last_seen=NOW() WHERE id=$2', [false, ws.session.id])
+            } catch (err) {
+                logger.error(err, "WSS: error on websocket close event")
+            }
         });
     });
 
@@ -217,8 +232,6 @@ function wsHeartbeat(wss: WebSocketServer) {
     wss.clients.forEach((ws: WebSocket) => {
         if (!ws.isAlive) {
             logger.info({ phone_no: ws.session?.phone_no }, 'WSS: websocket is dead. Terminating...');
-            wsClients.delete(ws.session?.id);
-            websocketCounter.dec();
             return ws.terminate();
         }
         ws.isAlive = false;
