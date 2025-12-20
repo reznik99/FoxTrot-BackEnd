@@ -31,6 +31,8 @@ export interface SocketMessage {
     offer?: string;
     answer?: string;
     candidate?: string;
+    ring?: boolean;
+    type?: 'video' | 'audio';
 }
 interface WebRTCData {
     offer?: SocketData;
