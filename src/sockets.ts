@@ -17,7 +17,7 @@ interface WebSocket extends wslib {
     session: JwtPayload;
 }
 export interface SocketData {
-    cmd: 'MSG' | 'CALL_OFFER' | 'CALL_ICE_CANDIDATE' | 'CALL_ANSWER' | 'CALL_CLOSED';
+    cmd: 'MSG' | 'CALL_OFFER' | 'CALL_ICE_CANDIDATE' | 'CALL_ANSWER';
     data: SocketMessage;
 }
 export interface SocketMessage {
@@ -102,11 +102,6 @@ export const InitWebsocketServer = (expressServer: Server) => {
                         break;
                     }
                     case 'CALL_ANSWER': {
-                        wsProxyMessage(ws, parsedData);
-                        break;
-                    }
-                    case 'CALL_CLOSED': {
-                        // TODO: Check call ID to ensure right call is declined
                         wsProxyMessage(ws, parsedData);
                         break;
                     }
