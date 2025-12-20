@@ -1,6 +1,6 @@
 {
     "name": "foxtrot-server",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "description": "",
     "main": "src/index.js",
     "scripts": {
@@ -30,20 +30,20 @@
         "ws": "^8.18.3"
     },
     "devDependencies": {
-        "@eslint/js": "^9.39.1",
+        "@eslint/js": "^9.39.2",
         "@types/eslint-plugin-security": "^3.0.0",
         "@types/express": "^5.0.6",
         "@types/morgan": "^1.9.10",
-        "@types/node": "^24.10.1",
+        "@types/node": "^24.10.4",
         "@types/passport": "^1.0.17",
         "@types/passport-jwt": "^4.0.1",
         "@types/passport-local": "^1.0.38",
-        "@types/pg": "^8.15.6",
+        "@types/pg": "^8.16.0",
         "@types/ws": "^8.18.1",
-        "eslint": "^9.39.1",
+        "eslint": "^9.39.2",
         "eslint-plugin-security": "^3.0.1",
         "prettier": "^3.7.4",
         "typescript": "^5.9.3",
-        "typescript-eslint": "^8.48.1"
+        "typescript-eslint": "^8.50.0"
     }
 }
