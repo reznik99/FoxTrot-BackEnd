@@ -273,7 +273,9 @@ async function sendPushNotificationForCall(parsedData: SocketData) {
                 public_key: '',
                 session_key: '',
             }),
-            data: JSON.stringify(parsedData.data)
+            data: JSON.stringify({
+                type: parsedData.data,
+            })
         },
     });
 }
