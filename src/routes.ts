@@ -134,6 +134,9 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                                 body: message.substring(0, 200),
                                 imageUrl: `https://robohash.org/${user.id}?size=150x150`,
                             },
+                            android: {
+                                priority: 'high'
+                            }
                         });
                     }
                     messagesCounter.inc();

@@ -5,12 +5,12 @@ import bodyParser from 'body-parser';
 import firebase from 'firebase-admin';
 
 import { InitWebsocketServer } from './sockets';
-import { CreateRoutes } from './routes';
-import { InitAuth } from './middlware/auth';
 import { InitMetrics, metricsMiddleware } from './middlware/metrics';
+import { logger, httpLoggerConfig } from './middlware/log';
+import { InitAuth } from './middlware/auth';
+import { CreateRoutes } from './routes';
 import { ServerConfig } from './config/envConfig';
 import serviceAccount from './config/foxtrot-push-notifications-firebase-adminsdk.json';
-import { logger, httpLoggerConfig } from './middlware/log';
 
 if (!ServerConfig.JWT_SECRET) {
     logger.error('JWT Secret not found in env but is required!');
