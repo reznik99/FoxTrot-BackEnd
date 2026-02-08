@@ -135,8 +135,8 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                                 imageUrl: `https://robohash.org/${user.id}?size=150x150`,
                             },
                             android: {
-                                priority: 'high'
-                            }
+                                priority: 'high',
+                            },
                         });
                     }
                     messagesCounter.inc();
