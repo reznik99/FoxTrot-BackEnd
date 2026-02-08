@@ -10,7 +10,7 @@ import { logger } from './log';
 const BCRYPT_SALT_ROUNDS = 12;
 
 export const InitAuth = (passport: PassportStatic) => {
-    passport.serializeUser((user: any, done) => done(null, user.id));
+    passport.serializeUser((user: unknown, done) => done(null, (user as { id: string }).id));
 
     passport.use('register', new LocalStrategy({
         usernameField: 'phone_no',
@@ -28,8 +28,8 @@ export const InitAuth = (passport: PassportStatic) => {
 
             return done(null, res.rows[0]);
 
-        } catch (err: any) {
-            logger.error(err?.errors?.[0]?.message || err, 'Signup err');
+        } catch (err: unknown) {
+            logger.error(err, 'Signup err');
             return done(null, false, { message: 'Error occoured during registration. Please try again later.' });
         }
     }));
@@ -50,8 +50,8 @@ export const InitAuth = (passport: PassportStatic) => {
             if (!equal) return done(null, false, { message: 'Invalid username and/or password' });
 
             return done(null, user);
-        } catch (err: any) {
-            logger.error(err?.errors?.[0]?.message || err, 'Login err');
+        } catch (err: unknown) {
+            logger.error(err, 'Login err');
             return done(null, false, { message: 'Error during login process. Try again later' });
         }
     }));
@@ -69,8 +69,8 @@ export const InitAuth = (passport: PassportStatic) => {
                 return done(null, false, { message: 'Invalid Token!' });
 
             return done(null, results.rows[0]);
-        } catch (err: any) {
-            logger.error(err?.errors?.[0]?.message || err, 'JWT Verify err');
+        } catch (err: unknown) {
+            logger.error(err, 'JWT Verify err');
             return done(null, false, { message: 'Error during Token verification process. Try again later' });
         }
     }));
