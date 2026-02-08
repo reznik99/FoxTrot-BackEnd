@@ -110,7 +110,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                             message: message,
                             reciever: targetWS.session.phone_no,
                             reciever_id: targetWS.session.id,
-                            sent_at: Date.now(),
+                            sent_at: new Date().toISOString(),
                             seen: false,
                         };
                         const msg = {
