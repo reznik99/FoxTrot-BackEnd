@@ -77,7 +77,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         logger.warn({ phone_no: user.phone_no }, 'User trying to overwrite account\'s public key. Rejected');
                         res.status(403).send();
                     }
-                } catch (err: any) {
+                } catch (err: unknown) {
                     logger.error(err, 'Error in savePublicKey');
                     res.status(500).send();
                 }
@@ -110,7 +110,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                             message: message,
                             reciever: targetWS.session.phone_no,
                             reciever_id: targetWS.session.id,
-                            sent_at: Date.now(),
+                            sent_at: new Date().toISOString(),
                             seen: false,
                         };
                         const msg = {
@@ -135,13 +135,13 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                                 imageUrl: `https://robohash.org/${user.id}?size=150x150`,
                             },
                             android: {
-                                priority: 'high'
-                            }
+                                priority: 'high',
+                            },
                         });
                     }
                     messagesCounter.inc();
                     res.status(200).send({ message: 'Message Sent' });
-                } catch (err: any) {
+                } catch (err: unknown) {
                     logger.error(err, 'Error in sendMessage');
                     res.status(500).send();
                 }
@@ -167,7 +167,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         message: 'Contact added',
                         ...results.rows[0],
                     });
-                } catch (err: any) {
+                } catch (err: unknown) {
                     logger.error(err, 'Error in addContact');
                     res.status(500).send({
                         message: 'Failed to add contact',
@@ -192,7 +192,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         message: 'Contact removed',
                     });
                 }
-                catch (err: any) {
+                catch (err: unknown) {
                     logger.error(err, 'Error in removeContact');
                     res.status(500).send();
                 }
@@ -216,7 +216,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         ON u.id = c.contact_id
                         WHERE c.user_id = $1`, [user.id]);
                     res.status(200).send(results.rows);
-                } catch (err: any) {
+                } catch (err: unknown) {
                     logger.error(err, 'Error in getContacts');
                     res.status(500).send();
                 }
@@ -236,7 +236,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                     const prefix = req.params.prefix;
                     const result = await pool.query('SELECT id, phone_no, public_key FROM users WHERE phone_no ILIKE $1 AND phone_no != $2 LIMIT 10', [`${prefix}%`, user.phone_no]);
                     res.status(200).send(result.rows);
-                } catch (err: any) {
+                } catch (err: unknown) {
                     logger.error(err, 'Error in searchUsers');
                     res.status(500).send();
                 }
@@ -255,16 +255,16 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 try {
                     const since = new Date(parseInt(req.query.since as string || '0'));
                     const result = await pool.query(`
-                        SELECT m.id, message, sent_at, seen, u1.phone_no AS reciever, u1.id AS reciever_id, u2.phone_no AS sender, u2.id AS sender_id 
-                            FROM messages AS m 
-                            INNER JOIN users AS u1 ON m.contact_id = u1.id 
-                            INNER JOIN users AS u2 ON m.user_id = u2.id 
+                        SELECT m.id, message, sent_at, seen, u1.phone_no AS reciever, u1.id AS reciever_id, u2.phone_no AS sender, u2.id AS sender_id
+                            FROM messages AS m
+                            INNER JOIN users AS u1 ON m.contact_id = u1.id
+                            INNER JOIN users AS u2 ON m.user_id = u2.id
                         WHERE (user_id = $1 OR contact_id = $1) AND sent_at > $2::timestamptz
-                        ORDER BY sent_at DESC 
+                        ORDER BY sent_at DESC
                         LIMIT 1000`, [user.id, since]);
 
                     res.status(200).send(result.rows);
-                } catch (err: any) {
+                } catch (err: unknown) {
                     logger.error(err, 'Error in getConversations');
                     res.status(500).send();
                 }
@@ -295,7 +295,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                     devices.set(user.id, req.body.token);
                     await pool.query('UPDATE users SET fcm_token = $1 WHERE id = $2', [req.body.token, user.id]);
                     res.status(200).send('Registered');
-                } catch (err: any) {
+                } catch (err: unknown) {
                     logger.error(err, 'Error in registerPushNotifications');
                     res.status(500).send();
                 }

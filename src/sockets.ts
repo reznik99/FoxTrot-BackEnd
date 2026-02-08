@@ -270,7 +270,7 @@ async function sendPushNotificationForCall(parsedData: SocketData) {
             }),
             data: JSON.stringify({
                 type: parsedData.data.type,
-            })
+            }),
         },
     });
 }

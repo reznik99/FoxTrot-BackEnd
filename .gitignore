@@ -3,3 +3,5 @@ dist/
 
 .env*
 foxtrot-push-notifications-firebase-adminsdk.json
+
+.zed/
