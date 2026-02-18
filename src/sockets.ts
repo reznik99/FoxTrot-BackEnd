@@ -146,7 +146,11 @@ export const InitWebsocketServer = (expressServer: Server) => {
  */
 function wsProxyMessage(ws: WebSocket, parsedData: SocketData) {
     const targetWS = wsClients.get(parsedData.data.reciever_id);
-    if (!targetWS) { return false; }
+    if (!targetWS) {
+        logger.warn({ sender: ws.session.phone_no, reciever: parsedData.data.reciever, reciever_id: parsedData.data.reciever_id },
+            'WSS: peer is offline or not connected, unable to proxy message');
+        return false;
+    }
     // Override sender info to avoid spoofing
     const proxyMsg: SocketData = {
         ...parsedData,
@@ -244,7 +248,7 @@ function wsHeartbeat(wss: WebSocketServer) {
 
 /**
  * Sends a DATA PUSH notification through firebase to the reciever, this triggers a call-screen.
- * @param parsedData 
+ * @param parsedData
  */
 async function sendPushNotificationForCall(parsedData: SocketData) {
     const fcm_token = await getFCMToken(parsedData.data.reciever_id);
