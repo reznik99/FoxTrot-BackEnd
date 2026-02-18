@@ -13,7 +13,7 @@ import { firebaseMessaging } from '.';
 import { logger } from './middlware/log';
 
 
-export const devices = new Map<string, string>();
+export const devices = new Map<number, string>();
 
 export const CreateRoutes = (app: Express, passport: PassportStatic) => {
 
@@ -327,7 +327,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
 };
 
 // Fetches the fcm_token for push notifications for the specified user from the database and caches it
-export const getFCMToken = async (user_id: string) => {
+export const getFCMToken = async (user_id: number) => {
     if (devices.has(user_id)) return devices.get(user_id);
 
     const res = await pool.query('SELECT fcm_token FROM users WHERE id = $1', [user_id]);

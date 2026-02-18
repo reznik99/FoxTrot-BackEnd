@@ -22,9 +22,9 @@ export interface SocketData {
 }
 export interface SocketMessage {
     sender: string;
-    sender_id: string | number;
+    sender_id: number;
     reciever: string;
-    reciever_id: string;
+    reciever_id: number;
     message?: string;
     sent_at?: number;
     seen?: boolean;
@@ -43,8 +43,8 @@ interface WebRTCData {
 const socketPingMs = 30_000;    // 30s ping timeout
 const webrtcCacheMs = 90_000;   // 90s webrtc metadata expiry
 
-export const wsClients = new Map<string, WebSocket>();
-const webrtcCachedData = new Map<string, WebRTCData>();
+export const wsClients = new Map<number, WebSocket>();
+const webrtcCachedData = new Map<number, WebRTCData>();
 
 export const InitWebsocketServer = (expressServer: Server) => {
     // Define the WebSocket server. Here, the server mounts to the `/ws` route of the Express JS server.
@@ -76,9 +76,8 @@ export const InitWebsocketServer = (expressServer: Server) => {
         // Individual websocket event handlers
         ws.on('message', async (data) => {
             try {
-                const parsedData = JSON.parse(data.toString()) as SocketData;
-                const size = new Blob([data.toString()]).size;
-                logger.info(`WSS: (${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${size} bytes)`);
+                const parsedData = wsParseMessage(data.toString());
+                logger.info(`WSS: (${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${Buffer.byteLength(data.toString())} bytes)`);
 
                 switch (parsedData.cmd) {
                     // WebRTC Call Signaling logic
@@ -138,6 +137,16 @@ export const InitWebsocketServer = (expressServer: Server) => {
 
     setInterval(() => wsHeartbeat(wss), socketPingMs);
 };
+
+/**
+ * Parses incoming websocket message and coerces fields to expected types.
+ * JSON.parse does not enforce TypeScript types, so numeric IDs may arrive as strings.
+ */
+function wsParseMessage(data: string): SocketData {
+    const parsed: SocketData = JSON.parse(data);
+    parsed.data.reciever_id = Number(parsed.data.reciever_id);
+    return parsed;
+}
 
 /**
  * Proxies message from one websocket to another after overriding sender info with `ws` session info
