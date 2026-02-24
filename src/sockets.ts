@@ -193,43 +193,42 @@ function webrtcCacheMessage(parsedData: SocketData) {
 }
 
 /**
- * Sends all the previously cached webrtc data to the supplied websocket
+ * Sends all the previously cached webrtc data to the supplied websocket, and deletes the cache entry
  * @param ws receiver of cached webrtc data
  */
 function webrtcSendCachedData(ws: WebSocket) {
-    try {
-        const cachedData = webrtcCachedData.get(ws.session.id);
-        if (!cachedData) { return; }
+    // Get cached call info
+    const cachedData = webrtcCachedData.get(ws.session.id);
+    if (!cachedData) { return; }
+    // Delete from cache
+    webrtcCachedData.delete(ws.session.id);
 
-        // Check if cache is expired
-        if (cachedData.cacheTime < Date.now() - webrtcCacheMs) {
-            logger.warn({ cacheTime: new Date(cachedData.cacheTime).toLocaleTimeString() }, 'WSS: webrtc cached data expired at');
-            return;
+    // Check if cache is expired
+    if (cachedData.cacheTime < Date.now() - webrtcCacheMs) {
+        logger.warn({ cacheTime: new Date(cachedData.cacheTime).toLocaleTimeString() }, 'WSS: webrtc cached data expired at');
+        return;
+    }
+    // Re-send ice-candidates
+    // TODO: maybe rate limit these
+    if (cachedData.icecandidates) {
+        for (const candidate of cachedData.icecandidates) {
+            const size = new Blob([JSON.stringify(candidate)]).size;
+            logger.info(`WSS: [cached](${candidate.cmd}) ${candidate.data.sender} -> ${candidate.data.reciever}: (${size} bytes)`);
+            ws.send(JSON.stringify(candidate));
         }
-        // Re-send ice-candidates
-        // TODO: maybe rate limit these
-        if (cachedData.icecandidates) {
-            for (const candidate of cachedData.icecandidates) {
-                const size = new Blob([JSON.stringify(candidate)]).size;
-                logger.info(`WSS: [cached](${candidate.cmd}) ${candidate.data.sender} -> ${candidate.data.reciever}: (${size} bytes)`);
-                ws.send(JSON.stringify(candidate));
-            }
-        }
-        // Re-send offer
-        if (cachedData.offer) {
-            const offer = cachedData.offer;
-            const size = new Blob([JSON.stringify(offer)]).size;
-            logger.info(`WSS: [cached](${offer.cmd}) ${offer.data.sender} -> ${offer.data.reciever}: (${size} bytes)`);
-            ws.send(JSON.stringify({
-                ...offer,
-                data: {
-                    ...offer.data,
-                    ring: false,
-                },
-            }));
-        }
-    } finally {
-        webrtcCachedData.delete(ws.session.id);
+    }
+    // Re-send offer
+    if (cachedData.offer) {
+        const offer = cachedData.offer;
+        const size = new Blob([JSON.stringify(offer)]).size;
+        logger.info(`WSS: [cached](${offer.cmd}) ${offer.data.sender} -> ${offer.data.reciever}: (${size} bytes)`);
+        ws.send(JSON.stringify({
+            ...offer,
+            data: {
+                ...offer.data,
+                ring: false,
+            },
+        }));
     }
 }
 
