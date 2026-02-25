@@ -11,6 +11,7 @@ import { messagesCounter } from './middlware/metrics';
 import { wsClients } from './sockets';
 import { firebaseMessaging } from '.';
 import { logger } from './middlware/log';
+import { ALLOWED_MEDIA_TYPES, generateUploadUrl, generateDownloadUrl } from './storage';
 
 
 export const devices = new Map<number, string>();
@@ -311,6 +312,58 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 // Generate access credentials for TURN server for this user
                 const creds = generateTURNServerCredentials(user.phone_no);
                 res.status(200).send(creds);
+            }
+        })(req, res, next);
+    });
+
+    // Media Routes
+    app.post('/foxtrot-api/media/upload-url', (req, res, next) => {
+        passport.authenticate('jwt', async (err, user, info) => {
+            if (err) {
+                logger.error(err.message || err);
+                res.status(500).send();
+            } else if (info) {
+                logger.error(info.message);
+                res.status(403).send(info);
+            } else {
+                try {
+                    const { contentType } = req.body;
+                    if (!contentType || !ALLOWED_MEDIA_TYPES.includes(contentType)) {
+                        res.status(400).send({ message: 'Invalid or missing contentType' });
+                        return;
+                    }
+
+                    const result = await generateUploadUrl(user.id, contentType);
+                    res.status(200).send(result);
+                } catch (err: unknown) {
+                    logger.error(err, 'Error in media/upload-url');
+                    res.status(500).send();
+                }
+            }
+        })(req, res, next);
+    });
+    app.post('/foxtrot-api/media/download-url', (req, res, next) => {
+        passport.authenticate('jwt', async (err, user, info) => {
+            if (err) {
+                logger.error(err.message || err);
+                res.status(500).send();
+            } else if (info) {
+                logger.error(info.message);
+                res.status(403).send(info);
+            } else {
+                try {
+                    const { objectKey } = req.body;
+                    if (!objectKey || typeof objectKey !== 'string' || !objectKey.startsWith('media/')) {
+                        res.status(400).send({ message: 'Invalid or missing objectKey' });
+                        return;
+                    }
+
+                    const result = await generateDownloadUrl(objectKey);
+                    res.status(200).send(result);
+                } catch (err: unknown) {
+                    logger.error(err, 'Error in media/download-url');
+                    res.status(500).send();
+                }
             }
         })(req, res, next);
     });
