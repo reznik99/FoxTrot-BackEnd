@@ -21,6 +21,10 @@ if (!ServerConfig.JWT_SECRET) {
 } else if (!ServerConfig.TURN_SECRET) {
     logger.error('TURN server secret is required!');
     process.exit(1);
+} else if (!ServerConfig.S3_BUCKET || !ServerConfig.S3_REGION ||
+           !ServerConfig.S3_ACCESS_KEY_ID || !ServerConfig.S3_SECRET_ACCESS_KEY) {
+    logger.error('S3 configuration (S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY) is required!');
+    process.exit(1);
 }
 
 firebase.initializeApp({

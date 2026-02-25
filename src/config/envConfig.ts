@@ -22,6 +22,13 @@ const ServerConfig = {
     // TURN enviroment variables for WebRTC Call Proxying in case Peer-To-Peer fails (CGNAT or Symmetric NAT)
     TURN_SECRET: process.env.TURN_SECRET || '',
     TURN_TTL: Number(process.env.TURN_TTL || 3600),
+    // S3 environment variables for media uploads (images, video, audio)
+    S3_BUCKET: process.env.S3_BUCKET || '',
+    S3_REGION: process.env.S3_REGION || '',
+    S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID || '',
+    S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY || '',
+    S3_UPLOAD_EXPIRY: Number(process.env.S3_UPLOAD_EXPIRY || 300),
+    S3_DOWNLOAD_EXPIRY: Number(process.env.S3_DOWNLOAD_EXPIRY || 3600),
 };
 
 export {
