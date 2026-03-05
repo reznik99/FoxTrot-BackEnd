@@ -69,7 +69,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
             }
         } catch (err) {
             logger.error(err, 'WSS: connection rejected, invalid JWT');
-            ws.close();
+            ws.close(4401, 'Authentication failed');
             return;
         }
 
