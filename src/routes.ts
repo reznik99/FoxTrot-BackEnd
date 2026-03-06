@@ -69,14 +69,15 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(403).send(info);
             } else {
                 try {
-                    const { rows } = await pool.query('SELECT public_key from users WHERE id = $1', [user.id]);
-
-                    if (!rows[0]?.public_key) {
-                        await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [req.body.publicKey, user.id]);
-                        res.status(200).send({ message: 'Stored public key' });
-                    } else {
+                    const result = await pool.query(
+                        'UPDATE users SET public_key = $1 WHERE id = $2 AND public_key IS NULL',
+                        [req.body.publicKey, user.id],
+                    );
+                    if (result.rowCount === 0) {
                         logger.warn({ phone_no: user.phone_no }, 'User trying to overwrite account\'s public key. Rejected');
                         res.status(403).send();
+                    } else {
+                        res.status(200).send({ message: 'Stored public key' });
                     }
                 } catch (err: unknown) {
                     logger.error(err, 'Error in savePublicKey');
