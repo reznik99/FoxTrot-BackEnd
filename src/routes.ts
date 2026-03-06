@@ -145,7 +145,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         });
                     }
                     messagesCounter.inc();
-                    res.status(200).send({ message: 'Message Sent' });
+                    res.status(200).send({ message: 'Message Sent', id: result.rows[0]?.id });
                 } catch (err: unknown) {
                     logger.error(err, 'Error in sendMessage');
                     res.status(500).send();
