@@ -287,6 +287,28 @@ async function broadcastStatusToContacts(userId: number, phoneNo: string, online
     }
 }
 
+/**
+ * Notifies all online users who have `userId` in their contact list that the user's public key has changed.
+ * Contacts should re-derive their session key.
+ */
+export async function broadcastKeyRotation(userId: number, phoneNo: string, publicKey: string) {
+    try {
+        const result = await pool.query('SELECT user_id FROM contacts WHERE contact_id = $1', [userId]);
+        const msg = JSON.stringify({
+            cmd: 'KEY_ROTATED',
+            data: { user_id: userId, phone_no: phoneNo, public_key: publicKey },
+        });
+        for (const row of result.rows) {
+            const contactWs = wsClients.get(row.user_id);
+            if (contactWs && contactWs.readyState === wslib.OPEN) {
+                contactWs.send(msg);
+            }
+        }
+    } catch (err) {
+        logger.error(err, 'WSS: error broadcasting key rotation');
+    }
+}
+
 // ---- Heartbeat ----
 
 /**

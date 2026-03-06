@@ -8,7 +8,7 @@ import { createHmac } from 'crypto';
 
 import { ServerConfig, pool } from './config/envConfig';
 import { messagesCounter } from './middlware/metrics';
-import { wsClients } from './sockets';
+import { wsClients, broadcastKeyRotation } from './sockets';
 import { firebaseMessaging } from '.';
 import { logger } from './middlware/log';
 import { ALLOWED_MEDIA_TYPES, generateUploadUrl, generateDownloadUrl } from './storage';
@@ -69,15 +69,18 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                 res.status(403).send(info);
             } else {
                 try {
-                    const result = await pool.query(
-                        'UPDATE users SET public_key = $1 WHERE id = $2 AND public_key IS NULL',
-                        [req.body.publicKey, user.id],
-                    );
+                    const query = req.body.force
+                        ? 'UPDATE users SET public_key = $1 WHERE id = $2'
+                        : 'UPDATE users SET public_key = $1 WHERE id = $2 AND public_key IS NULL';
+                    const result = await pool.query(query, [req.body.publicKey, user.id]);
                     if (result.rowCount === 0) {
                         logger.warn({ phone_no: user.phone_no }, 'User trying to overwrite account\'s public key. Rejected');
                         res.status(403).send();
                     } else {
+                        logger.info({ phone_no: user.phone_no, force: !!req.body.force }, 'User uploaded public key');
                         res.status(200).send({ message: 'Stored public key' });
+                        // Notify contacts so they re-derive session keys with the new public key
+                        broadcastKeyRotation(user.id, user.phone_no, req.body.publicKey);
                     }
                 } catch (err: unknown) {
                     logger.error(err, 'Error in savePublicKey');
