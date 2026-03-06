@@ -24,7 +24,7 @@ export const InitAuth = (passport: PassportStatic) => {
 
             // Hash password and create new user
             const hashedPw = await hash(password, BCRYPT_SALT_ROUNDS);
-            const res = await pool.query('INSERT INTO users(phone_no, password) VALUES ($1, $2) RETURNING *', [phone_no, hashedPw]);
+            const res = await pool.query('INSERT INTO users(phone_no, password) VALUES ($1, $2) RETURNING id, phone_no, public_key', [phone_no, hashedPw]);
 
             return done(null, res.rows[0]);
 
@@ -40,7 +40,7 @@ export const InitAuth = (passport: PassportStatic) => {
         session: false,
     }, async (phone_no, password, done) => {
         try {
-            const results = await pool.query('SELECT * FROM users WHERE phone_no=$1', [phone_no]);
+            const results = await pool.query('SELECT id, phone_no, public_key, password FROM users WHERE phone_no=$1', [phone_no]);
             if (results.rows.length !== 1)
                 return done(null, false, { message: 'Invalid username and/or password' });
 
@@ -63,8 +63,7 @@ export const InitAuth = (passport: PassportStatic) => {
 
     passport.use('jwt', new JWTstrategy(opts, async (jwt_payload, done) => {
         try {
-            // Not sure if this check is necessary
-            const results = await pool.query('SELECT * FROM users WHERE id=$1', [jwt_payload.id]);
+            const results = await pool.query('SELECT id, phone_no FROM users WHERE id=$1', [jwt_payload.id]);
             if (results.rows.length < 1)
                 return done(null, false, { message: 'Invalid Token!' });
 
