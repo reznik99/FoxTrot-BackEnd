@@ -42,9 +42,11 @@ interface WebRTCData {
 
 const socketPingMs = 30_000;    // 30s ping timeout
 const webrtcCacheMs = 90_000;   // 90s webrtc metadata expiry
+const offlineGraceMs = 5_000;   // 5s grace period before broadcasting offline
 
 export const wsClients = new Map<number, WebSocket>();
 const webrtcCachedData = new Map<number, WebRTCData>();
+const pendingOffline = new Map<number, ReturnType<typeof setTimeout>>();
 
 export const InitWebsocketServer = (expressServer: Server) => {
     // Define the WebSocket server. Here, the server mounts to the `/ws` route of the Express JS server.
@@ -61,8 +63,15 @@ export const InitWebsocketServer = (expressServer: Server) => {
             logger.info({ user: decoded.phone_no }, 'WSS: connection established');
             // Update metrics for active websocket counter
             websocketCounter.inc();
+            // Cancel pending offline broadcast if reconnecting within grace period
+            const wasPendingOffline = pendingOffline.has(decoded.id);
+            clearPendingOffline(decoded.id);
             // Set active status in database
             await pool.query('UPDATE users SET online=$1, last_seen=NOW() WHERE id=$2', [true, ws.session.id]);
+            // Broadcast online to contacts (skip if reconnecting within grace period — they never saw us go offline)
+            if (!wasPendingOffline) {
+                broadcastStatusToContacts(decoded.id, decoded.phone_no, true);
+            }
             // Check if any cached ice candidates await this user
             if (webrtcCachedData.has(ws.session.id)) {
                 webrtcSendCachedData(ws);
@@ -121,14 +130,17 @@ export const InitWebsocketServer = (expressServer: Server) => {
         ws.on('error', (err) => {
             logger.warn({ err: err, user: ws.session?.phone_no }, 'WSS: websocket error');
         });
-        ws.on('close', async (code) => {
+        ws.on('close', (code) => {
             try {
                 logger.info({ user: ws.session?.phone_no, code: code }, 'WSS: closing websocket');
-                // Delete socket info and update metrics
-                const deleted = wsClients.delete(ws.session?.id);
-                if (deleted) websocketCounter.dec();
-                // Set active status in database
-                await pool.query('UPDATE users SET online=$1, last_seen=NOW() WHERE id=$2', [false, ws.session.id]);
+                // Only process if this is still the active connection for this user.
+                // Prevents a stale close event from removing a newer connection.
+                if (wsClients.get(ws.session?.id) === ws) {
+                    wsClients.delete(ws.session?.id);
+                    websocketCounter.dec();
+                    // Defer offline DB update and broadcast — covers quick reconnects (e.g. app backgrounding)
+                    scheduleOfflineBroadcast(ws.session.id, ws.session.phone_no);
+                }
             } catch (err) {
                 logger.warn({ err: err, user: ws.session?.phone_no }, 'WSS: error on websocket close event');
             }
@@ -231,6 +243,51 @@ function webrtcSendCachedData(ws: WebSocket) {
         }));
     }
 }
+
+// ---- Online status broadcasting ----
+
+function clearPendingOffline(userId: number) {
+    const timer = pendingOffline.get(userId);
+    if (timer) {
+        clearTimeout(timer);
+        pendingOffline.delete(userId);
+    }
+}
+
+function scheduleOfflineBroadcast(userId: number, phoneNo: string) {
+    clearPendingOffline(userId);
+    pendingOffline.set(userId, setTimeout(async () => {
+        pendingOffline.delete(userId);
+        // Only mark offline if user hasn't reconnected during the grace period
+        if (!wsClients.has(userId)) {
+            await pool.query('UPDATE users SET online=$1, last_seen=NOW() WHERE id=$2', [false, userId]);
+            broadcastStatusToContacts(userId, phoneNo, false);
+        }
+    }, offlineGraceMs));
+}
+
+/**
+ * Notifies all online users who have `userId` in their contact list about a status change.
+ */
+async function broadcastStatusToContacts(userId: number, phoneNo: string, online: boolean) {
+    try {
+        const result = await pool.query('SELECT user_id FROM contacts WHERE contact_id = $1', [userId]);
+        const statusMsg = JSON.stringify({
+            cmd: 'CONTACT_STATUS',
+            data: { user_id: userId, phone_no: phoneNo, online, last_seen: new Date().toISOString() },
+        });
+        for (const row of result.rows) {
+            const contactWs = wsClients.get(row.user_id);
+            if (contactWs && contactWs.readyState === wslib.OPEN) {
+                contactWs.send(statusMsg);
+            }
+        }
+    } catch (err) {
+        logger.error(err, 'WSS: error broadcasting status change');
+    }
+}
+
+// ---- Heartbeat ----
 
 /**
  * Iterates through all connected websockets and terminates those that are unresponsive
