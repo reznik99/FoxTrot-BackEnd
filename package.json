@@ -6,7 +6,8 @@
     "scripts": {
         "build": "tsc",
         "start": "node ./dist/index.js",
-        "lint": "eslint ."
+        "lint": "eslint .",
+        "test": "node --test"
     },
     "author": "",
     "license": "ISC",
