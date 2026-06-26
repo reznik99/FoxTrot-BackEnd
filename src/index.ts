@@ -5,7 +5,7 @@ import bodyParser from 'body-parser';
 import firebase from 'firebase-admin';
 
 import { InitWebsocketServer } from './sockets';
-import { InitMetrics, metricsMiddleware } from './middlware/metrics';
+import { metricsMiddleware } from './middlware/metrics';
 import { logger, httpLoggerConfig } from './middlware/log';
 import { InitAuth } from './middlware/auth';
 import { CreateRoutes } from './routes';
@@ -50,8 +50,7 @@ async function main() {
     app.use(metricsMiddleware);
     app.use(passport.initialize());
 
-    // Register metrics, authentication and routes
-    InitMetrics();
+    // Register authentication and routes
     InitAuth(passport);
     CreateRoutes(app, passport);
 

@@ -62,7 +62,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
             ws.session = decoded;
             logger.info({ user: decoded.phone_no }, 'WSS: connection established');
             // Update metrics for active websocket counter
-            websocketCounter.inc();
+            websocketCounter.set(wsClients.size);
             // Cancel pending offline broadcast if reconnecting within grace period
             const wasPendingOffline = pendingOffline.has(decoded.id);
             clearPendingOffline(decoded.id);
@@ -137,7 +137,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
                 // Prevents a stale close event from removing a newer connection.
                 if (wsClients.get(ws.session?.id) === ws) {
                     wsClients.delete(ws.session?.id);
-                    websocketCounter.dec();
+                    websocketCounter.set(wsClients.size);
                     // Defer offline DB update and broadcast — covers quick reconnects (e.g. app backgrounding)
                     scheduleOfflineBroadcast(ws.session.id, ws.session.phone_no);
                 }

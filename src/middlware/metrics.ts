@@ -1,6 +1,9 @@
 import express from 'express';
 import promClient from 'prom-client';
 
+const metricsPath = '/foxtrot-api/metrics';
+const unmatchedPath = 'unmatched';
+
 export const requestCounter = new promClient.Counter({
     name: 'foxtrot_api_requests_total',
     help: 'Total number of requests processed by Foxtrot-Backend.',
@@ -24,21 +27,26 @@ export const websocketCounter = new promClient.Gauge({
     help: 'Total number of websockets handled by Foxtrot-Backend.',
 });
 
+function getPathLabel(req: express.Request) {
+    const routePath = req.route?.path;
+    if (typeof routePath === 'string') return routePath;
+    return unmatchedPath;
+}
+
 // Handle metrics such as requests count and errors count
 export const metricsMiddleware: express.Handler = function (req, res, next) {
-    if (req.path !== '/foxtrot-api/metrics') {
-        requestCounter.labels(req.path).inc();
+    if (req.path === metricsPath) {
+        next();
+        return;
     }
-    next(); // Pass through middleware
-    if (res.statusCode >= 400) {
-        requestErrorsCounter.labels(req.path).inc();
-    }
+
+    res.on('finish', () => {
+        const pathLabel = getPathLabel(req);
+        requestCounter.labels(pathLabel).inc();
+        if (res.statusCode >= 400) {
+            requestErrorsCounter.labels(pathLabel).inc();
+        }
+    });
+    next();
 };
 
-export const InitMetrics = () => {
-    promClient.register.registerMetric(requestCounter);
-    promClient.register.registerMetric(requestErrorsCounter);
-    promClient.register.registerMetric(messagesCounter);
-    promClient.register.registerMetric(callsCounter);
-    promClient.register.registerMetric(websocketCounter);
-};
