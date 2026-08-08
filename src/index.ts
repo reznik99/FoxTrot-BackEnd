@@ -2,7 +2,8 @@ import express from 'express';
 import passport from 'passport';
 import pinoHttp from 'pino-http';
 import bodyParser from 'body-parser';
-import firebase from 'firebase-admin';
+import { initializeApp, cert, type ServiceAccount } from 'firebase-admin/app';
+import { getMessaging, type Messaging } from 'firebase-admin/messaging';
 
 import { InitWebsocketServer } from './sockets';
 import { metricsMiddleware } from './middlware/metrics';
@@ -13,7 +14,7 @@ import { ServerConfig } from './config/envConfig';
 import { verifyS3Connection } from './storage';
 import serviceAccount from './config/foxtrot-push-notifications-firebase-adminsdk.json';
 
-export let firebaseMessaging: firebase.messaging.Messaging;
+export let firebaseMessaging: Messaging;
 
 async function main() {
     // Validate required environment variables
@@ -33,10 +34,10 @@ async function main() {
     }
 
     // Initialize Firebase
-    firebase.initializeApp({
-        credential: firebase.credential.cert(serviceAccount as firebase.ServiceAccount),
+    const firebaseApp = initializeApp({
+        credential: cert(serviceAccount as ServiceAccount),
     });
-    firebaseMessaging = firebase.messaging();
+    firebaseMessaging = getMessaging(firebaseApp);
 
     // Verify S3 connectivity
     await verifyS3Connection();
