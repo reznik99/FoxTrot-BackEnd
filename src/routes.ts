@@ -102,7 +102,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
 
                 try {
                     // Store message asyncronously
-                    const result = await pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4) returning id', [user.id, contact_id, message, false]);
+                    const result = await pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4) returning id, sent_at', [user.id, contact_id, message, false]);
 
                     // Attempt to send the message directly to the online user, as a websocket -> local-notification
                     const targetWS = wsClients.get(contact_id);
@@ -115,7 +115,8 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                             message: message,
                             reciever: targetWS.session.phone_no,
                             reciever_id: targetWS.session.id,
-                            sent_at: new Date().toISOString(),
+                            // The stored row's timestamp, so the websocket copy and the API copy of this message agree
+                            sent_at: result.rows[0]?.sent_at?.toISOString() ?? new Date().toISOString(),
                             seen: false,
                         };
                         const msg = {
