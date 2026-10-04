@@ -8,6 +8,7 @@ import { pool, ServerConfig } from './config/envConfig';
 import { getFCMToken } from './routes';
 import { firebaseMessaging } from '.';
 import { logger } from './middlware/log';
+import { CallIceCandidateFrame, CallOfferFrame, CallSignalFrame, ContactStatusFrame, KeyRotatedFrame } from './protocol';
 
 interface WebSocketServer extends wslib.Server {
     clients: Set<WebSocket>
@@ -16,27 +17,9 @@ interface WebSocket extends wslib {
     isAlive: boolean;
     session: JwtPayload;
 }
-export interface SocketData {
-    cmd: 'MSG' | 'CALL_OFFER' | 'CALL_ICE_CANDIDATE' | 'CALL_ANSWER';
-    data: SocketMessage;
-}
-export interface SocketMessage {
-    sender: string;
-    sender_id: number;
-    reciever: string;
-    reciever_id: number;
-    message?: string;
-    sent_at?: number;
-    seen?: boolean;
-    offer?: string;
-    answer?: string;
-    candidate?: string;
-    ring?: boolean;
-    type?: 'video' | 'audio';
-}
 interface WebRTCData {
-    offer?: SocketData;
-    icecandidates: SocketData[];
+    offer?: CallOfferFrame;
+    icecandidates: CallIceCandidateFrame[];
     cacheTime: number;
 }
 
@@ -85,7 +68,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
         // Individual websocket event handlers
         ws.on('message', async (data) => {
             try {
-                const parsedData = wsParseMessage(data.toString());
+                const parsedData = wsParseMessage(data.toString(), ws.session);
                 const line = `WSS: (${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${Buffer.byteLength(data.toString())} bytes)`;
                 if (parsedData.cmd === 'CALL_ICE_CANDIDATE') logger.debug(line);
                 else logger.info(line);
@@ -95,7 +78,7 @@ export const InitWebsocketServer = (expressServer: Server) => {
                     case 'CALL_OFFER': {
                         callsCounter.inc();
                         // Proxy webrtc call offer if ws online, else cache for a while and send on connection opened event
-                        const success = wsProxyMessage(ws, parsedData);
+                        const success = wsProxyMessage(parsedData);
                         if (!success) {
                             webrtcCacheMessage(parsedData);
                             // User is offline, send push notification to trigger call screen on receiver's device
@@ -106,18 +89,21 @@ export const InitWebsocketServer = (expressServer: Server) => {
                     }
                     case 'CALL_ICE_CANDIDATE': {
                         // Proxy webrtc ice candidate if ws online, else cache for a while and send on connection opened event
-                        const success = wsProxyMessage(ws, parsedData);
+                        const success = wsProxyMessage(parsedData);
                         if (!success) {
                             webrtcCacheMessage(parsedData);
                         }
                         break;
                     }
                     case 'CALL_ANSWER': {
-                        wsProxyMessage(ws, parsedData);
+                        wsProxyMessage(parsedData);
                         break;
                     }
-                    default:
-                        throw new Error(`Unknown command recieved: ${parsedData.cmd}`);
+                    default: {
+                        // Compile error when a CallSignalFrame command has no case above
+                        const unhandled: never = parsedData;
+                        throw new Error(`Unhandled command: ${data.toString()}`);
+                    }
                 }
             } catch (err) {
                 logger.error(err, 'WSS: error receiving data');
@@ -153,34 +139,37 @@ export const InitWebsocketServer = (expressServer: Server) => {
     setInterval(() => wsHeartbeat(wss), socketPingMs);
 };
 
+const callSignalCommands: ReadonlySet<string> = new Set<CallSignalFrame['cmd']>(['CALL_OFFER', 'CALL_ANSWER', 'CALL_ICE_CANDIDATE']);
+
 /**
- * Parses incoming websocket message and coerces fields to expected types.
+ * Parses a client frame, rejects commands clients may not send, coerces fields to expected types and stamps the
+ * sender from the authenticated session so the client-supplied sender fields are never trusted.
  * JSON.parse does not enforce TypeScript types, so numeric IDs may arrive as strings.
  */
-function wsParseMessage(data: string): SocketData {
-    const parsed: SocketData = JSON.parse(data);
-    parsed.data.reciever_id = Number(parsed.data.reciever_id);
-    return parsed;
+function wsParseMessage(data: string, session: JwtPayload): CallSignalFrame {
+    const parsed = JSON.parse(data);
+    if (!callSignalCommands.has(parsed?.cmd)) {
+        throw new Error(`Unknown command recieved: ${parsed?.cmd}`);
+    }
+    const frame: CallSignalFrame = parsed;
+    frame.data.reciever_id = Number(frame.data.reciever_id);
+    frame.data.sender_id = session.id;
+    frame.data.sender = session.phone_no;
+    return frame;
 }
 
 /**
- * Proxies message from one websocket to another after overriding sender info with `ws` session info
- * @param ws Sender websocket (used for sender info)
- * @param parsedData data to proxy (includes destination info)
+ * Proxies message to the reciever's websocket
+ * @param parsedData data to proxy (includes sender and destination info)
  */
-function wsProxyMessage(ws: WebSocket, parsedData: SocketData) {
+function wsProxyMessage(parsedData: CallSignalFrame) {
     const targetWS = wsClients.get(parsedData.data.reciever_id);
     if (!targetWS) {
-        logger.warn({ sender: ws.session.phone_no, reciever: parsedData.data.reciever, reciever_id: parsedData.data.reciever_id },
+        logger.warn({ sender: parsedData.data.sender, reciever: parsedData.data.reciever, reciever_id: parsedData.data.reciever_id },
             'WSS: peer is offline or not connected, unable to proxy message');
         return false;
     }
-    // Override sender info to avoid spoofing
-    const proxyMsg: SocketData = {
-        ...parsedData,
-        data: { ...parsedData.data, sender_id: ws.session.id, sender: ws.session.phone_no },
-    };
-    targetWS.send(JSON.stringify(proxyMsg));
+    targetWS.send(JSON.stringify(parsedData));
     return true;
 }
 
@@ -189,7 +178,7 @@ function wsProxyMessage(ws: WebSocket, parsedData: SocketData) {
  * Used for handling calling while one user is offline / closed app
  * @param parsedData socket data to extract webrtc info from
  */
-function webrtcCacheMessage(parsedData: SocketData) {
+function webrtcCacheMessage(parsedData: CallSignalFrame) {
     const key = parsedData.data.reciever_id;
     if (!webrtcCachedData.has(key)) {
         webrtcCachedData.set(key, { icecandidates: [], cacheTime: Date.now() });
@@ -234,16 +223,10 @@ function webrtcSendCachedData(ws: WebSocket) {
     }
     // Re-send offer
     if (cachedData.offer) {
-        const offer = cachedData.offer;
+        const offer: CallOfferFrame = { ...cachedData.offer, data: { ...cachedData.offer.data, ring: false } };
         const size = new Blob([JSON.stringify(offer)]).size;
         logger.info(`WSS: [cached](${offer.cmd}) ${offer.data.sender} -> ${offer.data.reciever}: (${size} bytes)`);
-        ws.send(JSON.stringify({
-            ...offer,
-            data: {
-                ...offer.data,
-                ring: false,
-            },
-        }));
+        ws.send(JSON.stringify(offer));
     }
 }
 
@@ -275,14 +258,14 @@ function scheduleOfflineBroadcast(userId: number, phoneNo: string) {
 async function broadcastStatusToContacts(userId: number, phoneNo: string, online: boolean) {
     try {
         const result = await pool.query('SELECT user_id FROM contacts WHERE contact_id = $1', [userId]);
-        const statusMsg = JSON.stringify({
+        const statusMsg: ContactStatusFrame = {
             cmd: 'CONTACT_STATUS',
             data: { user_id: userId, phone_no: phoneNo, online, last_seen: new Date().toISOString() },
-        });
+        };
         for (const row of result.rows) {
             const contactWs = wsClients.get(row.user_id);
             if (contactWs && contactWs.readyState === wslib.OPEN) {
-                contactWs.send(statusMsg);
+                contactWs.send(JSON.stringify(statusMsg));
             }
         }
     } catch (err) {
@@ -297,14 +280,14 @@ async function broadcastStatusToContacts(userId: number, phoneNo: string, online
 export async function broadcastKeyRotation(userId: number, phoneNo: string, publicKey: string) {
     try {
         const result = await pool.query('SELECT user_id FROM contacts WHERE contact_id = $1', [userId]);
-        const msg = JSON.stringify({
+        const rotationMsg: KeyRotatedFrame = {
             cmd: 'KEY_ROTATED',
             data: { user_id: userId, phone_no: phoneNo, public_key: publicKey },
-        });
+        };
         for (const row of result.rows) {
             const contactWs = wsClients.get(row.user_id);
             if (contactWs && contactWs.readyState === wslib.OPEN) {
-                contactWs.send(msg);
+                contactWs.send(JSON.stringify(rotationMsg));
             }
         }
     } catch (err) {
@@ -340,7 +323,7 @@ function wsHeartbeat(wss: WebSocketServer) {
  * Sends a DATA PUSH notification through firebase to the reciever, this triggers a call-screen.
  * @param parsedData
  */
-async function sendPushNotificationForCall(parsedData: SocketData) {
+async function sendPushNotificationForCall(parsedData: CallOfferFrame) {
     const fcm_token = await getFCMToken(parsedData.data.reciever_id);
     if (!fcm_token) {
         logger.warn({
