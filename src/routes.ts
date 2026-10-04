@@ -137,7 +137,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                             token: fcm_token,
                             notification: {
                                 title: `Message from ${user.phone_no}`,
-                                body: message.substring(0, 200),
+                                body: 'Encrypted message',
                                 imageUrl: `https://robohash.org/${user.id}?size=150x150`,
                             },
                             android: {
