@@ -1,6 +1,6 @@
 
 import { PassportStatic } from 'passport';
-import { Express } from 'express';
+import { Express, Request } from 'express';
 import { sign } from 'jsonwebtoken';
 import expressBasicAuth from 'express-basic-auth';
 import promClient from 'prom-client';
@@ -9,6 +9,7 @@ import { createHmac } from 'crypto';
 import { ServerConfig, pool } from './config/envConfig';
 import { messagesCounter } from './middlware/metrics';
 import { wsClients, broadcastKeyRotation } from './sockets';
+import { ChatMessage, MsgFrame } from './protocol';
 import { firebaseMessaging } from '.';
 import { logger } from './middlware/log';
 import { ALLOWED_MEDIA_TYPES, generateUploadUrl, generateDownloadUrl } from './storage';
@@ -21,11 +22,11 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/login', (req, res, next) => {
         passport.authenticate('login', (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
-                res.status(403).send(info);
+                logAuthRejected(req, info);
+                res.status(401).send(info);
             } else {
                 req.logIn(user, () => {
                     const token = sign({ id: user.id, phone_no: user.phone_no }, ServerConfig.JWT_SECRET, {
@@ -44,11 +45,11 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/signup', (req, res, next) => {
         passport.authenticate('register', (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
-                res.status(403).send(info);
+                logAuthRejected(req, info);
+                res.status(409).send(info);
             } else {
                 res.status(200).send({
                     user_data: { id: user.id, phone_no: user.phone_no, public_key: user.public_key },
@@ -62,10 +63,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/savePublicKey', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -75,7 +76,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                     const result = await pool.query(query, [req.body.publicKey, user.id]);
                     if (result.rowCount === 0) {
                         logger.warn({ phone_no: user.phone_no }, 'User trying to overwrite account\'s public key. Rejected');
-                        res.status(403).send();
+                        res.status(409).send({ message: 'Public key already set' });
                     } else {
                         logger.info({ phone_no: user.phone_no, force: !!req.body.force }, 'User uploaded public key');
                         res.status(200).send({ message: 'Stored public key' });
@@ -92,61 +93,46 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/sendMessage', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
-                const { message, contact_id, contact_phone_no } = req.body;
+                const { message, contact_phone_no } = req.body;
+                const contact_id = Number(req.body.contact_id);
 
                 try {
                     // Store message asyncronously
                     const result = await pool.query('INSERT INTO messages(user_id, contact_id, message, seen) VALUES( $1, $2, $3, $4) returning id, sent_at', [user.id, contact_id, message, false]);
+                    const id: number = result.rows[0]?.id;
+                    const sent_at: string = result.rows[0]?.sent_at?.toISOString() ?? new Date().toISOString();
 
                     // Attempt to send the message directly to the online user, as a websocket -> local-notification
                     const targetWS = wsClients.get(contact_id);
                     if (targetWS) {
-                        logger.info('Recipient online! Using websocket');
-                        const data = {
-                            id: result.rows[0]?.id,
+                        const data: ChatMessage = {
+                            id: id,
                             sender: user.phone_no,
                             sender_id: user.id,
                             message: message,
                             reciever: targetWS.session.phone_no,
                             reciever_id: targetWS.session.id,
-                            // The stored row's timestamp, so the websocket copy and the API copy of this message agree
-                            sent_at: result.rows[0]?.sent_at?.toISOString() ?? new Date().toISOString(),
+                            sent_at: sent_at,
                             seen: false,
                         };
-                        const msg = {
+                        const msg: MsgFrame = {
                             cmd: 'MSG',
                             data: data,
                         };
                         targetWS.send(JSON.stringify(msg));
+                        logger.debug({ reciever: targetWS.session.phone_no, id }, 'Socket notification sent');
                     } else {
-                        // Attempt to send the message to the user -> push-notification
-                        logger.info('Recipient offline! Sending Push notification');
-                        const fcm_token = await getFCMToken(contact_id);
-                        if (!fcm_token) {
-                            logger.warn({ contact_phone_no }, '/sendMessage: No fcm_token found');
-                            res.status(200).send({ message: 'Message Sent. Push Notification failed to send' });
-                            return;
-                        }
-                        await firebaseMessaging.send({
-                            token: fcm_token,
-                            notification: {
-                                title: `Message from ${user.phone_no}`,
-                                body: 'Encrypted message',
-                                imageUrl: `https://robohash.org/${user.id}?size=150x150`,
-                            },
-                            android: {
-                                priority: 'high',
-                            },
-                        });
+                        sendPushNotificationForMessage(user, contact_id, contact_phone_no)
+                            .catch(err => logger.warn({ err, reciever: contact_phone_no }, 'Push notification failed'));
                     }
                     messagesCounter.inc();
-                    res.status(200).send({ message: 'Message Sent', id: result.rows[0]?.id });
+                    res.status(200).send({ message: 'Message Sent', id, sent_at });
                 } catch (err: unknown) {
                     logger.error(err, 'Error in sendMessage');
                     res.status(500).send();
@@ -157,16 +143,16 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/addContact', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
                     const data = req.body;
                     await pool.query('INSERT INTO contacts VALUES ($1, $2)', [user.id, data.id]);
-                    const results = await pool.query('SELECT id, phone_no, public_key FROM users WHERE id = $1', [data.id]);
+                    const results = await pool.query('SELECT id, phone_no, public_key, online, last_seen FROM users WHERE id = $1', [data.id]);
                     if (!results.rows[0]) throw new Error('User not found');
 
                     res.status(200).send({
@@ -185,10 +171,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.delete('/foxtrot-api/removeContact', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -208,10 +194,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.get('/foxtrot-api/getContacts', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -232,10 +218,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.get('/foxtrot-api/searchUsers/:prefix', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -252,10 +238,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.get('/foxtrot-api/getConversations', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -280,7 +266,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.get('/foxtrot-api/validateToken', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             if (err || info) {
-                logger.error(info.message || err);
+                logAuthRejected(req, info, err);
                 res.status(401).send({ valid: false }); // token expired!
             } else {
                 res.status(200).send({ valid: true });  // token valid
@@ -290,10 +276,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/registerPushNotifications', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -311,7 +297,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.get('/foxtrot-api/turnServerKey', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             if (err || info) {
-                logger.error(info.message || err);
+                logAuthRejected(req, info, err);
                 res.status(401).send();
             } else {
                 // Generate access credentials for TURN server for this user
@@ -325,10 +311,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/media/upload-url', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -350,10 +336,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/media/download-url', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -383,6 +369,35 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
         }
     });
 };
+
+// Passport callback outcomes: `err` is a server fault, `info` is a request the strategy rejected (bad credentials, expired or invalid JWT).
+function logAuthError(req: Request, err: unknown) {
+    logger.error({ err, route: req.path }, 'Authentication error');
+}
+function logAuthRejected(req: Request, info: { message?: string } | undefined, err?: unknown) {
+    logger.warn({ route: req.path, reason: info?.message ?? String(err) }, 'Request rejected');
+}
+
+// Push for an offline message recipient. Runs after the response is sent; the outcome never reaches the sender.
+async function sendPushNotificationForMessage(sender: { id: number; phone_no: string }, recipientId: number, recipientPhone: string) {
+    const fcm_token = await getFCMToken(recipientId);
+    if (!fcm_token) {
+        logger.warn({ reciever: recipientPhone }, 'Push notification skipped: no FCM token');
+        return;
+    }
+    const messageId = await firebaseMessaging.send({
+        token: fcm_token,
+        notification: {
+            title: `Message from ${sender.phone_no}`,
+            body: 'Encrypted message',
+            imageUrl: `https://robohash.org/${sender.id}?size=150x150`,
+        },
+        android: {
+            priority: 'high',
+        },
+    });
+    logger.debug({ reciever: recipientPhone, messageId }, 'Push notification sent');
+}
 
 // Fetches the fcm_token for push notifications for the specified user from the database and caches it
 export const getFCMToken = async (user_id: number) => {
