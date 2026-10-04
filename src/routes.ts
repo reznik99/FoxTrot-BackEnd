@@ -17,35 +17,6 @@ import { ALLOWED_MEDIA_TYPES, generateUploadUrl, generateDownloadUrl } from './s
 
 export const devices = new Map<number, string>();
 
-/** Passport callback outcomes: `err` is a server fault, `info` is a request the strategy rejected (bad credentials, expired or invalid JWT). */
-function logAuthError(req: Request, err: unknown) {
-    logger.error({ err, route: req.path }, 'Authentication error');
-}
-function logAuthRejected(req: Request, info: { message?: string } | undefined, err?: unknown) {
-    logger.warn({ route: req.path, reason: info?.message ?? String(err) }, 'Request rejected');
-}
-
-/** Push for an offline message recipient. Runs after the response is sent; the outcome never reaches the sender. */
-async function sendPushNotificationForMessage(sender: { id: number; phone_no: string }, recipientId: number, recipientPhone: string) {
-    const fcm_token = await getFCMToken(recipientId);
-    if (!fcm_token) {
-        logger.warn({ reciever: recipientPhone }, 'Push notification skipped: no FCM token');
-        return;
-    }
-    const messageId = await firebaseMessaging.send({
-        token: fcm_token,
-        notification: {
-            title: `Message from ${sender.phone_no}`,
-            body: 'Encrypted message',
-            imageUrl: `https://robohash.org/${sender.id}?size=150x150`,
-        },
-        android: {
-            priority: 'high',
-        },
-    });
-    logger.debug({ reciever: recipientPhone, messageId }, 'Push notification sent');
-}
-
 export const CreateRoutes = (app: Express, passport: PassportStatic) => {
 
     app.post('/foxtrot-api/login', (req, res, next) => {
@@ -157,9 +128,8 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         targetWS.send(JSON.stringify(msg));
                         logger.debug({ reciever: targetWS.session.phone_no, id }, 'Socket notification sent');
                     } else {
-                        sendPushNotificationForMessage(user, contact_id, contact_phone_no).catch(err =>
-                            logger.warn({ err, reciever: contact_phone_no }, 'Push notification failed'),
-                        );
+                        sendPushNotificationForMessage(user, contact_id, contact_phone_no)
+                            .catch(err => logger.warn({ err, reciever: contact_phone_no }, 'Push notification failed'));
                     }
                     messagesCounter.inc();
                     res.status(200).send({ message: 'Message Sent', id, sent_at });
@@ -399,6 +369,35 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
         }
     });
 };
+
+// Passport callback outcomes: `err` is a server fault, `info` is a request the strategy rejected (bad credentials, expired or invalid JWT).
+function logAuthError(req: Request, err: unknown) {
+    logger.error({ err, route: req.path }, 'Authentication error');
+}
+function logAuthRejected(req: Request, info: { message?: string } | undefined, err?: unknown) {
+    logger.warn({ route: req.path, reason: info?.message ?? String(err) }, 'Request rejected');
+}
+
+// Push for an offline message recipient. Runs after the response is sent; the outcome never reaches the sender.
+async function sendPushNotificationForMessage(sender: { id: number; phone_no: string }, recipientId: number, recipientPhone: string) {
+    const fcm_token = await getFCMToken(recipientId);
+    if (!fcm_token) {
+        logger.warn({ reciever: recipientPhone }, 'Push notification skipped: no FCM token');
+        return;
+    }
+    const messageId = await firebaseMessaging.send({
+        token: fcm_token,
+        notification: {
+            title: `Message from ${sender.phone_no}`,
+            body: 'Encrypted message',
+            imageUrl: `https://robohash.org/${sender.id}?size=150x150`,
+        },
+        android: {
+            priority: 'high',
+        },
+    });
+    logger.debug({ reciever: recipientPhone, messageId }, 'Push notification sent');
+}
 
 // Fetches the fcm_token for push notifications for the specified user from the database and caches it
 export const getFCMToken = async (user_id: number) => {

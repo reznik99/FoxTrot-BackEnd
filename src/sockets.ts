@@ -82,8 +82,8 @@ export const InitWebsocketServer = (expressServer: Server) => {
                         if (!success) {
                             webrtcCacheMessage(parsedData);
                             // User is offline, send push notification to trigger call screen on receiver's device
-                            sendPushNotificationForCall(parsedData).catch(err =>
-                                logger.warn({ err, receiverId: parsedData.data.reciever_id }, 'WSS: call push failed'));
+                            sendPushNotificationForCall(parsedData)
+                                .catch(err => logger.warn({ err, receiverId: parsedData.data.reciever_id }, 'WSS: call push failed'));
                         }
                         break;
                     }
