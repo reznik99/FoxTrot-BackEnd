@@ -86,7 +86,9 @@ export const InitWebsocketServer = (expressServer: Server) => {
         ws.on('message', async (data) => {
             try {
                 const parsedData = wsParseMessage(data.toString());
-                logger.info(`WSS: (${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${Buffer.byteLength(data.toString())} bytes)`);
+                const line = `WSS: (${parsedData.cmd}) ${ws.session.phone_no} -> ${parsedData.data.reciever}: (${Buffer.byteLength(data.toString())} bytes)`;
+                if (parsedData.cmd === 'CALL_ICE_CANDIDATE') logger.debug(line);
+                else logger.info(line);
 
                 switch (parsedData.cmd) {
                     // WebRTC Call Signaling logic
@@ -97,7 +99,8 @@ export const InitWebsocketServer = (expressServer: Server) => {
                         if (!success) {
                             webrtcCacheMessage(parsedData);
                             // User is offline, send push notification to trigger call screen on receiver's device
-                            sendPushNotificationForCall(parsedData);
+                            sendPushNotificationForCall(parsedData).catch(err =>
+                                logger.warn({ err, receiverId: parsedData.data.reciever_id }, 'WSS: call push failed'));
                         }
                         break;
                     }
@@ -225,7 +228,7 @@ function webrtcSendCachedData(ws: WebSocket) {
     if (cachedData.icecandidates) {
         for (const candidate of cachedData.icecandidates) {
             const size = new Blob([JSON.stringify(candidate)]).size;
-            logger.info(`WSS: [cached](${candidate.cmd}) ${candidate.data.sender} -> ${candidate.data.reciever}: (${size} bytes)`);
+            logger.debug(`WSS: [cached](${candidate.cmd}) ${candidate.data.sender} -> ${candidate.data.reciever}: (${size} bytes)`);
             ws.send(JSON.stringify(candidate));
         }
     }
@@ -346,7 +349,7 @@ async function sendPushNotificationForCall(parsedData: SocketData) {
         }, 'WSS: no FCM token for user');
         return;
     }
-    await firebaseMessaging.send({
+    const messageId = await firebaseMessaging.send({
         token: fcm_token,
         android: {
             priority: 'high',
@@ -364,4 +367,5 @@ async function sendPushNotificationForCall(parsedData: SocketData) {
             }),
         },
     });
+    logger.debug({ receiverId: parsedData.data.reciever_id, messageId }, 'WSS: call push sent');
 }

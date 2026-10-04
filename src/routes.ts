@@ -1,6 +1,6 @@
 
 import { PassportStatic } from 'passport';
-import { Express } from 'express';
+import { Express, Request } from 'express';
 import { sign } from 'jsonwebtoken';
 import expressBasicAuth from 'express-basic-auth';
 import promClient from 'prom-client';
@@ -16,15 +16,44 @@ import { ALLOWED_MEDIA_TYPES, generateUploadUrl, generateDownloadUrl } from './s
 
 export const devices = new Map<number, string>();
 
+/** Passport callback outcomes: `err` is a server fault, `info` is a request the strategy rejected (bad credentials, expired or invalid JWT). */
+function logAuthError(req: Request, err: unknown) {
+    logger.error({ err, route: req.path }, 'Authentication error');
+}
+function logAuthRejected(req: Request, info: { message?: string } | undefined, err?: unknown) {
+    logger.warn({ route: req.path, reason: info?.message ?? String(err) }, 'Request rejected');
+}
+
+/** Push for an offline message recipient. Runs after the response is sent; the outcome never reaches the sender. */
+async function sendPushNotificationForMessage(sender: { id: number; phone_no: string }, recipientId: number, recipientPhone: string) {
+    const fcm_token = await getFCMToken(recipientId);
+    if (!fcm_token) {
+        logger.warn({ reciever: recipientPhone }, 'Message push skipped: no FCM token');
+        return;
+    }
+    const messageId = await firebaseMessaging.send({
+        token: fcm_token,
+        notification: {
+            title: `Message from ${sender.phone_no}`,
+            body: 'Encrypted message',
+            imageUrl: `https://robohash.org/${sender.id}?size=150x150`,
+        },
+        android: {
+            priority: 'high',
+        },
+    });
+    logger.debug({ reciever: recipientPhone, messageId }, 'Message push sent');
+}
+
 export const CreateRoutes = (app: Express, passport: PassportStatic) => {
 
     app.post('/foxtrot-api/login', (req, res, next) => {
         passport.authenticate('login', (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 req.logIn(user, () => {
@@ -44,10 +73,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/signup', (req, res, next) => {
         passport.authenticate('register', (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 res.status(200).send({
@@ -62,10 +91,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/savePublicKey', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -92,10 +121,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/sendMessage', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 const { message, contact_id, contact_phone_no } = req.body;
@@ -125,25 +154,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                         };
                         targetWS.send(JSON.stringify(msg));
                     } else {
-                        // Attempt to send the message to the user -> push-notification
                         logger.info('Recipient offline! Sending Push notification');
-                        const fcm_token = await getFCMToken(contact_id);
-                        if (!fcm_token) {
-                            logger.warn({ contact_phone_no }, '/sendMessage: No fcm_token found');
-                            res.status(200).send({ message: 'Message Sent. Push Notification failed to send' });
-                            return;
-                        }
-                        await firebaseMessaging.send({
-                            token: fcm_token,
-                            notification: {
-                                title: `Message from ${user.phone_no}`,
-                                body: 'Encrypted message',
-                                imageUrl: `https://robohash.org/${user.id}?size=150x150`,
-                            },
-                            android: {
-                                priority: 'high',
-                            },
-                        });
+                        sendPushNotificationForMessage(user, contact_id, contact_phone_no).catch(err =>
+                            logger.warn({ err, reciever: contact_phone_no }, 'Message push failed'),
+                        );
                     }
                     messagesCounter.inc();
                     res.status(200).send({ message: 'Message Sent', id: result.rows[0]?.id });
@@ -157,10 +171,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/addContact', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -185,10 +199,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.delete('/foxtrot-api/removeContact', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -208,10 +222,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.get('/foxtrot-api/getContacts', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -232,10 +246,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.get('/foxtrot-api/searchUsers/:prefix', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -252,10 +266,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.get('/foxtrot-api/getConversations', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -280,7 +294,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.get('/foxtrot-api/validateToken', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             if (err || info) {
-                logger.error(info.message || err);
+                logAuthRejected(req, info, err);
                 res.status(401).send({ valid: false }); // token expired!
             } else {
                 res.status(200).send({ valid: true });  // token valid
@@ -290,10 +304,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/registerPushNotifications', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -311,7 +325,7 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.get('/foxtrot-api/turnServerKey', (req, res, next) => {
         passport.authenticate('jwt', (err, user, info) => {
             if (err || info) {
-                logger.error(info.message || err);
+                logAuthRejected(req, info, err);
                 res.status(401).send();
             } else {
                 // Generate access credentials for TURN server for this user
@@ -325,10 +339,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/media/upload-url', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
@@ -350,10 +364,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
     app.post('/foxtrot-api/media/download-url', (req, res, next) => {
         passport.authenticate('jwt', async (err, user, info) => {
             if (err) {
-                logger.error(err.message || err);
+                logAuthError(req, err);
                 res.status(500).send();
             } else if (info) {
-                logger.error(info.message);
+                logAuthRejected(req, info);
                 res.status(403).send(info);
             } else {
                 try {
