@@ -165,8 +165,9 @@ function wsParseMessage(data: string, session: JwtPayload): CallSignalFrame {
 function wsProxyMessage(parsedData: CallSignalFrame) {
     const targetWS = wsClients.get(parsedData.data.reciever_id);
     if (!targetWS) {
-        logger.warn({ sender: parsedData.data.sender, reciever: parsedData.data.reciever, reciever_id: parsedData.data.reciever_id },
-            'WSS: peer is offline or not connected, unable to proxy message');
+        const details = { sender: parsedData.data.sender, reciever: parsedData.data.reciever, reciever_id: parsedData.data.reciever_id };
+        if (parsedData.cmd === 'CALL_ICE_CANDIDATE') logger.debug(details, 'WSS: peer is offline or not connected, unable to proxy message');
+        else logger.warn(details, 'WSS: peer is offline or not connected, unable to proxy message');
         return false;
     }
     targetWS.send(JSON.stringify(parsedData));

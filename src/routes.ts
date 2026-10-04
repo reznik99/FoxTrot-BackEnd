@@ -29,7 +29,7 @@ function logAuthRejected(req: Request, info: { message?: string } | undefined, e
 async function sendPushNotificationForMessage(sender: { id: number; phone_no: string }, recipientId: number, recipientPhone: string) {
     const fcm_token = await getFCMToken(recipientId);
     if (!fcm_token) {
-        logger.warn({ reciever: recipientPhone }, 'Message push skipped: no FCM token');
+        logger.warn({ reciever: recipientPhone }, 'Push notification skipped: no FCM token');
         return;
     }
     const messageId = await firebaseMessaging.send({
@@ -43,7 +43,7 @@ async function sendPushNotificationForMessage(sender: { id: number; phone_no: st
             priority: 'high',
         },
     });
-    logger.debug({ reciever: recipientPhone, messageId }, 'Message push sent');
+    logger.debug({ reciever: recipientPhone, messageId }, 'Push notification sent');
 }
 
 export const CreateRoutes = (app: Express, passport: PassportStatic) => {
@@ -140,7 +140,6 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                     // Attempt to send the message directly to the online user, as a websocket -> local-notification
                     const targetWS = wsClients.get(contact_id);
                     if (targetWS) {
-                        logger.info('Recipient online! Using websocket');
                         const data: ChatMessage = {
                             id: id,
                             sender: user.phone_no,
@@ -156,10 +155,10 @@ export const CreateRoutes = (app: Express, passport: PassportStatic) => {
                             data: data,
                         };
                         targetWS.send(JSON.stringify(msg));
+                        logger.debug({ reciever: targetWS.session.phone_no, id }, 'Socket notification sent');
                     } else {
-                        logger.info('Recipient offline! Sending Push notification');
                         sendPushNotificationForMessage(user, contact_id, contact_phone_no).catch(err =>
-                            logger.warn({ err, reciever: contact_phone_no }, 'Message push failed'),
+                            logger.warn({ err, reciever: contact_phone_no }, 'Push notification failed'),
                         );
                     }
                     messagesCounter.inc();
