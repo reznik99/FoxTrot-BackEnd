@@ -8,7 +8,7 @@ import { pool, ServerConfig } from './config/envConfig';
 import { getFCMToken } from './routes';
 import { firebaseMessaging } from '.';
 import { logger } from './middlware/log';
-import { CallIceCandidateFrame, CallOfferFrame, CallSignalFrame, ContactStatusFrame, KeyRotatedFrame } from './protocol';
+import { CallIceCandidateFrame, CallOfferFrame, CallPushData, CallSignalFrame, ContactStatusFrame, KeyRotatedFrame } from './protocol';
 
 interface WebSocketServer extends wslib.Server {
     clients: Set<WebSocket>
@@ -333,6 +333,7 @@ async function sendPushNotificationForCall(parsedData: CallOfferFrame) {
         }, 'WSS: no FCM token for user');
         return;
     }
+    const pushData: CallPushData = { type: parsedData.data.type };
     const messageId = await firebaseMessaging.send({
         token: fcm_token,
         android: {
@@ -346,9 +347,7 @@ async function sendPushNotificationForCall(parsedData: CallOfferFrame) {
                 public_key: '',
                 session_key: '',
             }),
-            data: JSON.stringify({
-                type: parsedData.data.type,
-            }),
+            data: JSON.stringify(pushData),
         },
     });
     logger.debug({ receiverId: parsedData.data.reciever_id, messageId }, 'WSS: call push sent');
