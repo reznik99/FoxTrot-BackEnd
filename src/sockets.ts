@@ -1,7 +1,6 @@
 import { IncomingMessage, Server } from 'http';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import wslib from 'ws';
-import url from 'url';
 
 import { callsCounter, websocketCounter } from './middlware/metrics';
 import { pool, ServerConfig } from './config/envConfig';
@@ -36,9 +35,9 @@ export const InitWebsocketServer = (expressServer: Server) => {
     const wss = new wslib.Server({ server: expressServer, path: '/foxtrot-api/ws' }) as WebSocketServer;
 
     wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
-        const token = url.parse(req.url as string, true).query.token as string;
-
         try {
+            const { searchParams } = new URL(req.url as string, `wss://${req.headers.host}`);
+            const token = searchParams.get('token') as string;
             const decoded = jwt.verify(token, ServerConfig.JWT_SECRET) as JwtPayload;
             wsClients.set(decoded.id, ws);
             ws.isAlive = true;
